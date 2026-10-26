@@ -6,9 +6,13 @@
 > Open the solution in Visual Studio, select the **API and Blazor** launch profile, and press **F5**. The frontend opens `/login`; the API applies pending migrations and the configured Development clinic/slot seed.
 > Use **Shift+F5** before rebuilding. See the [Visual Studio setup instructions](documentation/LOCAL_DEVELOPMENT.md#run-from-visual-studio).
 > Development startup seeds four fictional clinics and future weekday time slots in your configured SQL Server. Set `Development:SeedClinicsAndSlots=false` to disable it; no demo login is created by this setting.
-> Authorized administrators can add more clinics through **Clinics > Manage clinics**. Configure their Identity account IDs as described in the [clinic management guide](documentation/LOCAL_DEVELOPMENT.md#add-clinics-through-the-app).
+> Authorized administrators can add more clinics through **Clinics > Manage clinics**. Access uses ASP.NET Identity's `Admin` role; registration assigns `Patient`.
 > Development can seed `admin@phcis.local` with clinic-administration access automatically, without copying account IDs. Configure `Development:AdministratorPassword` in API user secrets and start with F5; see the current run guide.
 > **Manage clinics** also supports editing clinic details, adding/editing/closing/reopening future slots, and granting administrator access to another registered account. Booked slots and appointment history are protected.
+> **Manage clinics > View and manage administrators** lists administrators and removes their `Admin` membership while retaining their account and `Patient` role. The API protects the last administrator, including concurrent removal requests.
+> Identity seeds three roles: `Patient`, `Staff`, and `Admin`. Registration assigns `Patient`; `Staff` does not grant administrator access or introduce additional staff permissions.
+> **Manage clinics > View and manage staff** lets administrators list Staff members and assign or remove Staff from registered users. It uses the existing Identity tables and preserves accounts and all other roles.
+> **Staff dashboard** lets Staff-role users view appointments by clinic, date and status, then mark ended Scheduled appointments Completed or No-show. Administrators also need Staff membership for this dashboard.
 > Earlier OIDC setup notes below are retained as historical reference and are not the current run instructions.
 
 ## Scenario Overview

@@ -1,0 +1,181 @@
+@page "/staff-dashboard"
+@attribute [Authorize]
+@inject PortalClient Portal
+
+<PageTitle>Staff dashboard · PHCIS</PageTitle>
+<h1>Staff dashboard</h1>
+<p>View clinic appointments and record attendance. Times use South African time (UTC+02:00).</p>
+<ApiError Error="_error" />
+@if (_loading)
+{
+    <p role="status">Checking Staff access…</p>
+}
+else if (!_allowed)
+{
+    <p>The Staff role is required to view clinic appointments. Ask an administrator to assign it to your account.</p>
+}
+else
+{
+    @if (_message is not null) { <p role="status">@_message</p> }
+    <section class="panel">
+        <h2>Clinic appointments</h2>
+        <EditForm id="staff-appointments-search" Model="_search" OnValidSubmit="SearchAsync" FormName="staff-appointments-search">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="staff-clinic">Clinic *</label>
+                        <InputSelect id="staff-clinic" @bind-Value="_search.ClinicId">
+                            <option value="">Select a clinic</option>
+                            @foreach (var clinic in _clinics) { <option value="@clinic.Id">@clinic.Name</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="field">
+                        <label for="staff-appointment-date">Date *</label>
+                        <InputDate id="staff-appointment-date" @bind-Value="_search.Date" />
+                    </div>
+                    <div class="field">
+                        <label for="staff-appointment-status">Status</label>
+                        <InputSelect id="staff-appointment-status" @bind-Value="_search.Status">
+                            <option value="">All statuses</option>
+                            <option value="Scheduled">Scheduled</option>
+                            <option value="Completed">Completed</option>
+                            <option value="NoShow">No-show</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </InputSelect>
+                    </div>
+                </div>
+                <button type="submit" class="primary">@(_busy ? "Loading…" : "View appointments")</button>
+            </fieldset>
+        </EditForm>
+    </section>
+    @if (_page is not null && _loadedSearch is not null)
+    {
+        <section class="panel admin-section">
+            <h2>@_loadedClinicName — @_loadedSearch.Date?.ToString("dd MMM yyyy")</h2>
+            <p>Only Scheduled appointments whose slots have ended can be finalized. Refresh the list after a slot ends.</p>
+            @if (_page.Items.Count == 0) { <p>No appointments match this clinic, date and status.</p> }
+            else
+            {
+                <div class="table-scroll">
+                    <table class="admin-slot-table">
+                        <thead><tr><th>Reference</th><th>Patient</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            @foreach (var appointment in _page.Items)
+                            {
+                                <tr>
+                                    <td>@PortalDisplay.Reference(appointment.Id)</td>
+                                    <td>@appointment.PatientName</td>
+                                    <td>@Local(appointment.StartsAt)–@Local(appointment.EndsAt)</td>
+                                    <td>@(appointment.Status == "NoShow" ? "No-show" : appointment.Status)</td>
+                                    <td>
+                                        <button type="button" disabled="@(_busy || !appointment.CanFinalize)" @onclick="() => Select(appointment, true)">Mark completed</button>
+                                        <button type="button" disabled="@(_busy || !appointment.CanFinalize)" @onclick="() => Select(appointment, false)">Mark no-show</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <p>Showing up to 50 appointments per page.</p>
+            <button type="button" disabled="@(_busy || _page.Offset == 0)" @onclick="() => ChangePageAsync(-50)">Previous</button>
+            <button type="button" disabled="@(_busy || !_page.HasMore)" @onclick="() => ChangePageAsync(50)">Next</button>
+        </section>
+    }
+    @if (_selected is not null)
+    {
+        <section class="panel admin-section" aria-labelledby="finalize-appointment-heading">
+            <h2 id="finalize-appointment-heading">Mark appointment @(_completed ? "completed" : "no-show")?</h2>
+            <p>@_selected.PatientName · @Local(_selected.StartsAt)–@Local(_selected.EndsAt)</p>
+            <p>This is a final status. Review the appointment before confirming.</p>
+            <button id="confirm-staff-outcome" type="button" class="primary" disabled="@_busy" @onclick="FinalizeAsync">Confirm status change</button>
+            <button type="button" disabled="@_busy" @onclick="() => _selected = null">Keep current status</button>
+        </section>
+    }
+}
+
+@code {
+    private sealed class SearchModel
+    {
+        [System.ComponentModel.DataAnnotations.Required] public Guid? ClinicId { get; set; }
+        [System.ComponentModel.DataAnnotations.Required] public DateOnly? Date { get; set; } =
+            DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(2)).DateTime);
+        public string Status { get; set; } = "";
+    }
+    private readonly SearchModel _search = new();
+    private SearchModel? _loadedSearch;
+    private string? _loadedClinicName;
+    private IReadOnlyList<ClinicCard> _clinics = [];
+    private StaffAppointmentsPage? _page;
+    private StaffAppointmentRow? _selected;
+    private bool _completed;
+    private bool _allowed;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _message;
+    private AppointmentApiException? _error;
+
+    private static string Local(DateTimeOffset value) => value.ToOffset(TimeSpan.FromHours(2)).ToString("HH:mm");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _allowed = (await Portal.StaffDashboardAccessAsync()).CanViewAppointments;
+            if (_allowed) _clinics = await Portal.ClinicsAsync();
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _loading = false; }
+    }
+
+    private async Task SearchAsync() => await RunAsync(async () =>
+    {
+        _page = null;
+        _selected = null;
+        _loadedSearch = new SearchModel { ClinicId = _search.ClinicId, Date = _search.Date, Status = _search.Status };
+        _loadedClinicName = _clinics.FirstOrDefault(x => x.Id == _loadedSearch.ClinicId)?.Name;
+        await LoadPageAsync(0);
+    });
+
+    private async Task LoadPageAsync(int offset) => _page = await Portal.ClinicAppointmentsAsync(
+        _loadedSearch!.ClinicId!.Value, _loadedSearch.Date!.Value, _loadedSearch.Status, offset);
+
+    private async Task ChangePageAsync(int delta) => await RunAsync(async () =>
+    {
+        _selected = null;
+        await LoadPageAsync(Math.Max(0, (_page?.Offset ?? 0) + delta));
+    });
+
+    private void Select(StaffAppointmentRow appointment, bool completed)
+    {
+        _selected = appointment;
+        _completed = completed;
+        _message = null;
+    }
+
+    private async Task FinalizeAsync()
+    {
+        if (_selected is null) return;
+        var appointmentId = _selected.Id;
+        await RunAsync(async () =>
+        {
+            await Portal.FinalizeAppointmentAsync(_loadedSearch!.ClinicId!.Value, appointmentId, _completed);
+            _selected = null;
+            _message = _completed ? "Appointment marked completed." : "Appointment marked no-show.";
+            await LoadPageAsync(_page?.Offset ?? 0);
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true;
+        _message = null;
+        _error = null;
+        try { await action(); }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}

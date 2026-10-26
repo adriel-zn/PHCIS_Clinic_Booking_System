@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PHCIS.Api.Authentication;
@@ -29,7 +28,7 @@ public static class AdministratorDevelopmentData
             await SeedAsync(context, users, scope.ServiceProvider.GetRequiredService<TimeProvider>(),
                 app.Configuration["Development:AdministratorPassword"]);
         });
-        app.Logger.LogInformation("Development administrator is ready: {Email}", Email);
+        app.Logger.LogInformation("Development administrator seed completed; existing role memberships were preserved.");
     }
 
     /// <summary>Creates a patient-linked Identity administrator atomically; existing accounts are never promoted.</summary>
@@ -39,9 +38,7 @@ public static class AdministratorDevelopmentData
         var existing = await users.FindByEmailAsync(Email);
         if (existing is not null)
         {
-            if (!(await users.GetClaimsAsync(existing)).Any(x => x.Type == ClinicAdministration.PermissionClaim &&
-                x.Value == ClinicAdministration.PermissionValue))
-                throw new InvalidOperationException("The reserved administrator email belongs to an existing non-administrator. It was not modified.");
+            // An existing account is never promoted again: a removed role must stay removed on restart.
             return;
         }
         if (string.IsNullOrWhiteSpace(password))
@@ -54,9 +51,10 @@ public static class AdministratorDevelopmentData
         context.Patients.Add(patient);
         var user = new PortalUser { UserName = Email, Email = Email, PatientId = patient.Id };
         EnsureSuccess(await users.CreateAsync(user, password));
-        EnsureSuccess(await users.AddClaimAsync(user, new Claim(
-            ClinicAdministration.PermissionClaim, ClinicAdministration.PermissionValue)));
-        if (transaction is not null) await transaction.CommitAsync();
+        EnsureSuccess(await users.AddToRoleAsync(user, PortalRoles.Patient));
+        EnsureSuccess(await users.AddToRoleAsync(user, PortalRoles.Admin));
+        if (transaction is not null)
+            await transaction.CommitAsync();
     }
 
     private static void EnsureSuccess(IdentityResult result)

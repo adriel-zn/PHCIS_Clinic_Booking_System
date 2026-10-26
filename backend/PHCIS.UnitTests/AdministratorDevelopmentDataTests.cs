@@ -44,16 +44,21 @@ public sealed class AdministratorDevelopmentDataTests
         using var client = factory.Client();
         Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/account/register", new
         {
-            firstName = "Existing", lastName = "Patient", email = AdministratorDevelopmentData.Email,
-            password = "Existing!2026", phoneNumber = "082 555 0100", dateOfBirth = "1990-01-01"
+            firstName = "Existing",
+            lastName = "Patient",
+            email = AdministratorDevelopmentData.Email,
+            password = "Existing!2026",
+            phoneNumber = "082 555 0100",
+            dateOfBirth = "1990-01-01"
         })).StatusCode);
         using var scope = factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<PortalUser>>();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => AdministratorDevelopmentData.SeedAsync(
+        await AdministratorDevelopmentData.SeedAsync(
             scope.ServiceProvider.GetRequiredService<PhcisDbContext>(), users,
-            new TestClock(DomainTestData.Now), "AdminDemo!2026"));
+            new TestClock(DomainTestData.Now), "AdminDemo!2026");
         var user = await users.FindByEmailAsync(AdministratorDevelopmentData.Email);
         Assert.Empty(await users.GetClaimsAsync(user!));
+        Assert.False(await users.IsInRoleAsync(user!, PortalRoles.Admin));
         Assert.True(await users.CheckPasswordAsync(user!, "Existing!2026"));
     }
 

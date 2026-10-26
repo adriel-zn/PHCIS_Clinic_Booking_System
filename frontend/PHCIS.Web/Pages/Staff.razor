@@ -1,0 +1,125 @@
+@page "/staff"
+@attribute [Authorize]
+@inject PortalClient Portal
+
+<PageTitle>Staff management · PHCIS</PageTitle>
+<h1>Staff management</h1>
+<p><a href="/staff-dashboard">Open Staff dashboard</a> (Staff role required)</p>
+<p><a href="/manage-clinics">Back to clinic management</a> · <a href="/administrators">Manage administrators</a></p>
+<ApiError Error="_error" />
+@if (_loading)
+{
+    <p role="status">Loading staff…</p>
+}
+else if (!_allowed)
+{
+    <p>Administrator access is required to manage staff.</p>
+}
+else
+{
+    <p>Staff membership does not grant administrator access. Removing Staff keeps the person's account, password, appointments and other roles.</p>
+    @if (_message is not null) { <p role="status">@_message</p> }
+    <button type="button" class="secondary" disabled="@_busy" @onclick="LoadAsync">Refresh staff</button>
+    @if (_staff is not null)
+    {
+        @if (_staff.Count == 0) { <p>No Staff members have been assigned.</p> }
+        else
+        {
+            <div class="table-scroll">
+                <table class="admin-slot-table">
+                    <thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead>
+                    <tbody>
+                        @foreach (var person in _staff)
+                        {
+                            <tr>
+                                <td>@person.Email @(person.IsCurrentUser ? "(you)" : "")</td>
+                                <td>Staff</td>
+                                <td><button type="button" disabled="@_busy" @onclick="() => SelectRemoval(person)">Remove Staff role</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    @if (_selected is not null)
+    {
+        <section class="panel admin-section" aria-labelledby="remove-staff-heading">
+            <h2 id="remove-staff-heading">Remove Staff role?</h2>
+            <p>Remove Staff from @_selected.Email? Their other roles and account remain intact.</p>
+            <button id="confirm-staff-removal" type="button" class="primary" disabled="@_busy" @onclick="RemoveAsync">Confirm removal</button>
+            <button type="button" disabled="@_busy" @onclick="() => _selected = null">Keep Staff role</button>
+        </section>
+    }
+    <section class="panel admin-section">
+        <h2>Assign Staff role</h2>
+        <p>The person must register an account first.</p>
+        <EditForm id="assign-staff-form" Model="_model" OnValidSubmit="AssignAsync" FormName="assign-staff">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="field">
+                    <label for="staff-email">Registered account email *</label>
+                    <InputText id="staff-email" type="email" @bind-Value="_model.Email" maxlength="254" />
+                </div>
+                <label><InputCheckbox id="confirm-staff-assignment" @bind-Value="_model.ConfirmStaffAssignment" /> I confirm this account should receive the Staff role.</label>
+                <p><button type="submit" class="primary">@(_busy ? "Saving…" : "Assign Staff role")</button></p>
+            </fieldset>
+        </EditForm>
+    </section>
+}
+
+@code {
+    private IReadOnlyList<StaffDetails>? _staff;
+    private StaffDetails? _selected;
+    private AssignStaffModel _model = new();
+    private bool _loading = true;
+    private bool _allowed;
+    private bool _busy;
+    private string? _message;
+    private AppointmentApiException? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => await RunAsync(async () =>
+    {
+        _selected = null;
+        _allowed = (await Portal.ClinicManagementAccessAsync()).CanManageClinics;
+        _staff = _allowed ? await Portal.StaffAsync() : null;
+    });
+
+    private void SelectRemoval(StaffDetails person) { _selected = person; _message = null; }
+
+    private async Task AssignAsync() => await RunAsync(async () =>
+    {
+        await Portal.AssignStaffAsync(_model);
+        _model = new();
+        _selected = null;
+        _message = "Staff role assigned. Sign out and back in to refresh role claims in the recipient's session.";
+        _staff = await Portal.StaffAsync();
+    });
+
+    private async Task RemoveAsync()
+    {
+        if (_selected is null) return;
+        var id = _selected.Id;
+        await RunAsync(async () =>
+        {
+            await Portal.RemoveStaffAsync(id);
+            _selected = null;
+            _message = "Staff role removed. Other roles and the account were preserved.";
+            _staff = await Portal.StaffAsync();
+        });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        _message = null;
+        try { await action(); }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _loading = false; _busy = false; }
+    }
+}

@@ -49,18 +49,21 @@ public static class DevelopmentData
             await using var transaction = await context.Database.BeginTransactionAsync();
             context.Patients.Add(patient);
             await context.SaveChangesAsync();
-            var result = await users.CreateAsync(new PortalUser
+            var user = new PortalUser
             {
                 UserName = Email,
                 Email = Email,
                 PatientId = patient.Id,
                 PhoneNumber = patient.PhoneNumber
-            }, password);
+            };
+            var result = await users.CreateAsync(user, password);
             if (!result.Succeeded)
             {
                 throw new InvalidOperationException("Development account could not be created: " +
                     string.Join("; ", result.Errors.Select(x => x.Description)));
             }
+            if (!(await users.AddToRoleAsync(user, PortalRoles.Patient)).Succeeded)
+                throw new InvalidOperationException("Demo patient role could not be assigned.");
             await transaction.CommitAsync();
         });
 

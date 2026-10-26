@@ -13,6 +13,21 @@ public sealed class PortalClient(HttpClient http)
     public Task CreateClinicAsync(CreateClinicModel model) => WriteAsync("api/clinic-management", model);
     public Task UpdateClinicAsync(Guid id, CreateClinicModel model) => WriteAsync($"api/clinic-management/{id}/details", model);
     public Task GrantAdministratorAsync(GrantAdministratorModel model) => WriteAsync("api/administrators", model);
+    public async Task<IReadOnlyList<AdministratorDetails>> AdministratorsAsync() =>
+        await ReadAsync<List<AdministratorDetails>>("api/administrators");
+    public Task RemoveAdministratorAsync(string id) =>
+        WriteAsync($"api/administrators/{Uri.EscapeDataString(id)}/removal", new { ConfirmRemoval = true });
+    public async Task<IReadOnlyList<StaffDetails>> StaffAsync() => await ReadAsync<List<StaffDetails>>("api/staff");
+    public Task AssignStaffAsync(AssignStaffModel model) => WriteAsync("api/staff", model);
+    public Task RemoveStaffAsync(string id) =>
+        WriteAsync($"api/staff/{Uri.EscapeDataString(id)}/removal", new { ConfirmRemoval = true });
+    public Task<StaffDashboardAccess> StaffDashboardAccessAsync() => ReadAsync<StaffDashboardAccess>("api/staff-appointments/access");
+    public Task<StaffAppointmentsPage> ClinicAppointmentsAsync(Guid clinicId, DateOnly date, string? status, int offset) =>
+        ReadAsync<StaffAppointmentsPage>($"api/staff-appointments?clinicId={clinicId}&date={date:yyyy-MM-dd}&offset={offset}&limit=50" +
+            (string.IsNullOrEmpty(status) ? "" : $"&status={Uri.EscapeDataString(status)}"));
+    public Task FinalizeAppointmentAsync(Guid clinicId, Guid appointmentId, bool completed) =>
+        WriteAsync($"api/staff-appointments/{clinicId}/{appointmentId}/" + (completed ? "completion" : "no-show"),
+            new { ConfirmStatusChange = true });
     public async Task<IReadOnlyList<ManagedTimeSlot>> ManagedSlotsAsync(Guid id, DateOnly date)
     {
         var from = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(2));
@@ -37,7 +52,9 @@ public sealed class PortalClient(HttpClient http)
         {
             using var response = await http.PostAsJsonAsync(path, model);
             if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                throw new AppointmentApiException(403, "Clinic administrator access is required for this action.");
+                throw new AppointmentApiException(403, path.StartsWith("api/staff-appointments/", StringComparison.Ordinal)
+                    ? "The Staff role is required for this action. Ask an administrator to check your access."
+                    : "Clinic administrator access is required for this action.");
             if (!response.IsSuccessStatusCode)
                 throw await AppointmentApiClient.ReadErrorAsync(response, default);
         }
@@ -61,6 +78,8 @@ public sealed class PortalClient(HttpClient http)
         try
         {
             using var response = await http.GetAsync(path);
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && path.StartsWith("api/staff-appointments", StringComparison.Ordinal))
+                throw new AppointmentApiException(403, "The Staff role is required to view clinic appointments.");
             if (!response.IsSuccessStatusCode)
             {
                 throw await AppointmentApiClient.ReadErrorAsync(response, default);

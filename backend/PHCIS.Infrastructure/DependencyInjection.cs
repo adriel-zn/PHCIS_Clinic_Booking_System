@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPortalReader, PortalReader>();
         services.AddScoped<IClinicWriter, ClinicWriter>();
+        services.AddScoped<IStaffAppointmentReader, StaffAppointmentReader>();
         return services;
     }
 }

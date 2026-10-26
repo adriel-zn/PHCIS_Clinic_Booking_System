@@ -15,11 +15,12 @@ using Microsoft.Extensions.Options;
 using PHCIS.Api.Authentication;
 using PHCIS.Domain.Entities;
 using PHCIS.Infrastructure.Persistence;
+using PHCIS.Infrastructure.Identity;
 
 namespace PHCIS.UnitTests;
 
 /// <summary>Uses the real cookie, antiforgery and API pipeline with isolated in-memory persistence.</summary>
-internal sealed class ApiFactory(string environment = "Development", bool clinicAdministrator = false) : WebApplicationFactory<Program>
+internal sealed class ApiFactory(string environment = "Development", bool clinicAdministrator = false, bool staffMember = false) : WebApplicationFactory<Program>
 {
     private readonly string _database = Guid.NewGuid().ToString();
     private readonly Patient _patient = DomainTestData.Patient();
@@ -43,8 +44,7 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
             ["Development:InitializeDatabase"] = "false",
             ["Database:ApplyMigrationsOnStartup"] = "false",
             ["Development:SeedClinicsAndSlots"] = "false",
-            ["Development:SeedAdministrator"] = "false",
-            ["ClinicManagement:AdministratorAccountIds:0"] = clinicAdministrator ? "test-subject" : ""
+            ["Development:SeedAdministrator"] = "false"
         }));
         builder.ConfigureTestServices(services =>
         {
@@ -87,6 +87,37 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
     public string Token(string? patientClaim = null, bool omitPatientClaim = false,
         bool duplicatePatientClaim = false, bool expired = false, bool wrongSignature = false)
     {
+        if (clinicAdministrator || staffMember)
+        {
+            using var scope = Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<PhcisDbContext>();
+            if (!context.Users.Any(x => x.Id == "test-subject"))
+            {
+                context.Users.Add(new PortalUser
+                {
+                    Id = "test-subject",
+                    UserName = "test-admin@example.test",
+                    Email = "test-admin@example.test",
+                    NormalizedUserName = "TEST-ADMIN@EXAMPLE.TEST",
+                    NormalizedEmail = "TEST-ADMIN@EXAMPLE.TEST",
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                    PatientId = PatientId
+                });
+                if (clinicAdministrator)
+                    context.UserRoles.Add(new IdentityUserRole<string>
+                    {
+                        UserId = "test-subject",
+                        RoleId = context.Roles.Single(x => x.Name == PortalRoles.Admin).Id
+                    });
+                if (staffMember)
+                    context.UserRoles.Add(new IdentityUserRole<string>
+                    {
+                        UserId = "test-subject",
+                        RoleId = context.Roles.Single(x => x.Name == PortalRoles.Staff).Id
+                    });
+                context.SaveChanges();
+            }
+        }
         var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, "test-subject") };
         if (!omitPatientClaim)
             claims.Add(new Claim(PatientIdentity.ClaimType, patientClaim ?? PatientId.ToString()));

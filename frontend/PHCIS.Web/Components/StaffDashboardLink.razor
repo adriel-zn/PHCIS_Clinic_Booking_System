@@ -1,0 +1,13 @@
+@inject PortalClient Portal
+@if (_allowed)
+{
+    <NavLink href="/staff-dashboard"><Icon Name="list" />Staff dashboard</NavLink>
+}
+@code {
+    private bool _allowed;
+    protected override async Task OnInitializedAsync()
+    {
+        try { _allowed = (await Portal.StaffDashboardAccessAsync()).CanViewAppointments; }
+        catch (AppointmentApiException) { /* Optional navigation must not block the patient's workspace. */ }
+    }
+}

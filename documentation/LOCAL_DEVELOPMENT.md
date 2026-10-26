@@ -63,27 +63,15 @@ Clinic management is available at `/manage-clinics`. Only explicitly authorized 
 
 Development startup creates `admin@phcis.local` when `Development:SeedAdministrator=true` (enabled in appsettings.Development.json). Set `Development:AdministratorPassword` through **PHCIS.Api > Manage User Secrets** before starting. Use a password of at least 10 characters containing uppercase, lowercase, a digit and a symbol. Identity stores the password hash in the configured SQL Server; the plaintext password must stay out of source control.
 
-Start **API and Blazor** with F5, sign in as `admin@phcis.local` using that password, and open **Clinics > Manage clinics**. No account-ID configuration is required: the seed saves a server-managed `phcis_permission=manage_clinics` Identity claim, included in the secure session at login. A linked patient profile allows the same account to use the portal.
+Start **API and Blazor** with F5, sign in as `admin@phcis.local` using that password, and open **Clinics > Manage clinics**. No account-ID configuration is required: the seed assigns the standard Identity `Admin` and `Patient` roles. A linked patient profile allows the same account to use the portal.
 
-The seed never runs outside Development. Repeated runs preserve the existing password and profile. An ordinary account using the reserved email causes a clear startup failure rather than being promoted or having its password reset. Set `Development:SeedAdministrator=false` after creation if desired; the administrator remains in the database. Changing the seed password setting does not reset an existing account. On another machine, configure the password through Manage User Secrets before starting, or disable the seed.
+The administrator-account seed never runs outside Development. Repeated runs preserve the existing password, profile and role memberships. Existing accounts are never automatically promoted: removing Admin access remains effective after restart, including for the seeded account. Set `Development:SeedAdministrator=false` after creation if desired; the account remains in the database. Changing the seed password setting does not reset an existing account. On another machine, configure the password through Manage User Secrets before starting, or disable the seed.
 
-#### Authorize an Existing Account (Optional)
+#### Add a Clinic
 
-1. Register your own account and sign in.
-2. In Visual Studio **SQL Server Object Explorer** (or SSMS), connect to your configured database. Find your account in `dbo.AspNetUsers` by `Email` and copy its `Id` (the Identity account ID, not `PatientId`).
-3. In **PHCIS.Api > Manage User Secrets**, add the following section alongside your existing settings, replacing the example with that ID:
-
-~~~json
-"ClinicManagement": {
-  "AdministratorAccountIds": ["YOUR-ASPNETUSERS-ID"]
-}
-~~~
-
-The same section is available in API `appsettings.json`; use Development settings or user secrets for your local account. The allowlist is empty by default. Account IDs are server assigned and cannot be chosen during registration. Add more IDs to authorize additional administrators.
-
-4. Stop debugging, restart **API and Blazor** with F5, and open **Clinics > Manage clinics**.
-5. Enter a unique clinic name, address and optional phone number, then select **Add clinic**. The API saves the clinic and its initial future slots in one transaction. Slots cover the next 15 calendar days, Monday–Friday, 08:00–17:00 South African time, in 30-minute intervals.
-6. Select **View clinics** to book against the new availability.
+1. Sign in as an administrator and open **Clinics > Manage clinics**.
+2. Enter a unique clinic name, address and optional phone number, then select **Add clinic**. The API saves the clinic and its initial future slots in one transaction. Slots cover the next 15 calendar days, Monday–Friday, 08:00–17:00 South African time, in 30-minute intervals.
+3. Select **View clinics** to book against the new availability.
 
 Clinic details are validated in the browser and API. Duplicate clinic names are rejected. The API checks administrator access and CSRF protection for every write. Initial availability for manually added clinics is created once at creation.
 
@@ -99,7 +87,90 @@ The first manual schedule change disables automatic sample-slot refresh for that
 
 #### Add Another Administrator
 
-Ask the person to register their own account. In **Manage clinics > Add another administrator**, enter their registered email, check the explicit administrator-access confirmation, and select **Grant administrator access**. This grants permission to manage clinics, slots and other administrators; it does not change their password. They must sign out and back in to receive the permission in their session. Unknown emails are rejected, and repeating a grant does not add another permission claim. Normal patients cannot call this endpoint. Grants are logged using the acting and target account IDs without passwords or other account details.
+Ask the person to register their own account. In **Manage clinics > Add another administrator** (also available on the Administrators page), enter their registered email, check the explicit administrator-access confirmation, and select **Grant administrator access**. This adds `Admin` membership in `AspNetUserRoles`, retains `Patient`, and does not change their password. Refresh the page to see access; signing out and back in also refreshes role claims in the session. Unknown emails are rejected, and repeated grants are idempotent. Normal patients cannot call this endpoint. Grants and removals are logged using the acting and target account IDs without passwords or other account details.
+
+#### View and Remove Administrators
+
+Open **Manage clinics > View and manage administrators** (`/administrators`). The directory lists every account in the `Admin` role, identifies your own account, and offers **Remove administrator access**. Select an account, review the confirmation, then confirm removal. This removes only the role membership: the user, password, patient record, appointments and `Patient` role remain.
+
+The last administrator's button is disabled, and the API independently rejects their removal with 409. Count and removal run in a SQL Server serializable transaction, with an in-process gate also covering nonrelational test stores, so simultaneous removals cannot remove the final administrator. The directory refreshes after a grant or removal. You may remove your own access if another administrator remains; the page then returns to Clinics.
+
+Every administrator request checks current role membership in the database. A removed administrator's existing cookie cannot continue authorizing administrator calls, even before they sign out. Patients cannot list administrators or remove access. Removal requires explicit confirmation and the existing CSRF token protection.
+
+#### Identity Role Tables and Upgrade
+
+`Patient`, `Staff` and `Admin` are seeded in `AspNetRoles`, with membership in `AspNetUserRoles` referencing `AspNetUsers`. No custom role or administrator tables are introduced. New registration assigns Patient; the Development administrator seed assigns Patient and Admin only when first creating the account. Startup ensures role definitions exist in every environment without restoring removed memberships. Staff does not grant administrator privileges. Administrators manage Staff membership using the page below; no existing accounts are automatically assigned Staff. Staff membership enables the clinic appointment dashboard described below.
+
+#### Manage Staff
+
+Sign in as an administrator, then open **Manage clinics > View and manage staff** (`/staff`). The page is also linked from **Administrators**. It lists every Staff member by email and identifies your own account when applicable. Only current Admin-role accounts can access the staff directory and its API; ordinary patients and Staff-only users cannot manage staff.
+
+To assign Staff, ask the person to register first. Enter their registered email under **Assign Staff role**, check the confirmation box, and select **Assign Staff role**. Unknown emails and invalid inputs are rejected. Repeating an assignment does not create duplicate membership. The table refreshes after saving; signing out and back in refreshes the recipient's cookie role claims.
+
+To remove Staff, select **Remove Staff role** beside the person and review the account email before confirming. Only Staff membership is removed. The account, password, patient profile, appointments and any Patient/Admin memberships are preserved, including when an administrator removes their own Staff role. The staff list may be empty; the last-administrator rule still applies separately to removal of Admin membership.
+
+Both writes require CSRF protection and explicit confirmation. The API uses UserManager with the existing AspNetUsers, AspNetRoles and AspNetUserRoles tables; no new tables or schema migration are needed. Audit logs record acting/target account IDs, not passwords or patient details. Failed requests display safe errors and preserve the entered details for review.
+
+| Method and path | Purpose |
+| --- | --- |
+| GET /api/staff | List current Staff members |
+| POST /api/staff | Assign Staff to a registered email with confirmation |
+| POST /api/staff/{accountId}/removal | Remove only Staff membership with confirmation |
+
+#### Staff Appointment Dashboard
+
+An administrator first assigns Staff through **Manage clinics > View and manage staff**. Sign out and back in (or refresh) and open **Staff dashboard** in the sidebar, or `/staff-dashboard`. Admin membership alone does not authorize the dashboard; an administrator may assign Staff to their own account. Staff assignment currently covers appointments across all clinics: there is no per-clinic staff-assignment model.
+
+Choose a clinic, South African calendar date and optional status, then select **View appointments**. Results include appointment reference, patient name, slot times and status, with 50 appointments per page and Previous/Next navigation. Contact details, national IDs, dates of birth and visit reasons are not returned by this staff view. The API validates the clinic, date, status and paging inputs and limits each page to at most 100 rows. The UI snapshots loaded filters so changing the search inputs does not change the clinic attached to an action on an already-loaded appointment.
+
+For a Scheduled appointment whose slot has ended, select **Mark completed** or **Mark no-show**, review the patient and time, and confirm the final status. Both actions reuse Domain lifecycle rules and the existing EF rowversion/unit-of-work concurrency handling. Completion and no-show cannot occur before slot end, and Cancelled, Completed or NoShow appointments cannot change status again. Mismatched clinic/appointment IDs return 404. The UI disables premature and terminal-state actions; the API independently enforces all rules and refreshes the list after successful writes. A patient's own appointment history immediately reflects the new status.
+
+Staff access is checked against current Staff membership in AspNetUserRoles on every request. Ordinary patients and Admin-only accounts receive 403. Removing Staff blocks the existing cookie from making further dashboard data requests or status changes. Writes use the existing CSRF token handling and require explicit confirmation; audit logs contain actor, appointment and clinic IDs plus outcome, excluding patient names and credentials. No schema migration is required for the dashboard.
+
+| Method and path | Purpose |
+| --- | --- |
+| GET /api/staff-appointments/access | Report the current account's Staff dashboard access |
+| GET /api/staff-appointments?clinicId=...&date=yyyy-MM-dd&status=...&offset=0&limit=50 | List clinic/day appointments |
+| POST /api/staff-appointments/{clinicId}/{appointmentId}/completion | Mark an ended Scheduled appointment Completed |
+| POST /api/staff-appointments/{clinicId}/{appointmentId}/no-show | Mark an ended Scheduled appointment NoShow |
+
+Status requests contain `{"confirmStatusChange":true}`. Query status may be omitted or be Scheduled, Completed, NoShow or Cancelled.
+
+~~~mermaid
+sequenceDiagram
+    actor Staff
+    participant Web as Blazor dashboard
+    participant API
+    participant Identity as Identity role tables
+    participant Domain
+    participant SQL as SQL Server
+    Staff->>Web: Select ended appointment and confirm outcome
+    Web->>API: POST outcome with session and CSRF token
+    API->>Identity: Verify current Staff membership
+    Identity-->>API: Authorized or forbidden
+    API->>Domain: Complete or MarkNoShow
+    Domain-->>API: Enforce Scheduled status and slot end
+    API->>SQL: Save with appointment rowversion
+    SQL-->>API: Saved or concurrent conflict
+    API-->>Web: Success or safe error
+    Web->>API: Refresh clinic appointments
+~~~
+
+The `SeedIdentityRoles` migration backfills Patient for existing accounts and converts existing `phcis_permission=manage_clinics` claims into Admin membership, then removes those obsolete permission claims. Existing credentials and profiles are preserved. Legacy `ClinicManagement:AdministratorAccountIds` settings no longer grant access; manage membership through the application. The migration runs automatically on API startup. Its rollback preserves memberships rather than deleting security data.
+
+~~~mermaid
+erDiagram
+    AspNetUsers ||--o{ AspNetUserRoles : has
+    AspNetRoles ||--o{ AspNetUserRoles : assigns
+    AspNetRoles {
+        string Id PK
+        string Name "Patient, Staff or Admin"
+    }
+    AspNetUserRoles {
+        string UserId PK, FK
+        string RoleId PK, FK
+    }
+~~~
 
 Endpoints: `GET /api/clinic-management/access` reports current-account access; `POST /api/clinic-management` creates a clinic and initial slots and returns its ID. Anonymous requests are rejected and non-administrator writes return 403.
 
@@ -113,6 +184,8 @@ Additional administrator endpoints:
 | POST /api/clinic-management/{clinicId}/slots/{slotId}/schedule | Edit a future slot with no appointment history |
 | POST /api/clinic-management/{clinicId}/slots/{slotId}/availability | Close or reopen a future unbooked slot |
 | POST /api/administrators | Grant access to a registered email, with explicit confirmation |
+| GET /api/administrators | List current administrators and last-administrator protection |
+| POST /api/administrators/{accountId}/removal | Remove Admin membership, with explicit confirmation |
 
 ### Optional LocalDB Demo
 

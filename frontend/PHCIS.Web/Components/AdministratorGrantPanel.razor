@@ -20,6 +20,7 @@
 </section>
 
 @code {
+    [Parameter] public EventCallback OnGranted { get; set; }
     private GrantAdministratorModel _model = new();
     private bool _busy;
     private bool _success;
@@ -36,6 +37,7 @@
             await Portal.GrantAdministratorAsync(_model);
             _model = new();
             _success = true;
+            await OnGranted.InvokeAsync();
         }
         catch (AppointmentApiException error) { _error = error; }
         finally { _busy = false; }

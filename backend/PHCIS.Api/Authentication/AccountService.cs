@@ -30,18 +30,22 @@ public sealed class AccountService(
             {
                 context.Patients.Add(patient);
                 await context.SaveChangesAsync(cancellationToken);
-                var result = await users.CreateAsync(new PortalUser
+                var user = new PortalUser
                 {
                     UserName = body.Email.Trim(),
                     Email = body.Email.Trim(),
                     PhoneNumber = body.PhoneNumber.Trim(),
                     PatientId = patient.Id
-                }, body.Password);
+                };
+                var result = await users.CreateAsync(user, body.Password);
                 if (!result.Succeeded)
                 {
                     throw new ValidationException(result.Errors.Select(error =>
                         new ValidationFailure("Account", error.Description)));
                 }
+                var roleResult = await users.AddToRoleAsync(user, PortalRoles.Patient);
+                if (!roleResult.Succeeded)
+                    throw new InvalidOperationException("Patient role could not be assigned.");
                 if (transaction is not null)
                 {
                     await transaction.CommitAsync(cancellationToken);

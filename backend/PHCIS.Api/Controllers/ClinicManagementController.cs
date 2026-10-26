@@ -9,7 +9,7 @@ namespace PHCIS.Api.Controllers;
 [ApiController]
 [Route("api/clinic-management")]
 [Authorize(Policy = PatientIdentity.Policy)]
-public sealed class ClinicManagementController(IClinicManagementService service, IConfiguration configuration) : ControllerBase
+public sealed class ClinicManagementController(IClinicManagementService service, IAuthorizationService authorization) : ControllerBase
 {
     /// <summary>Updates clinic contact details without changing appointments.</summary>
     [HttpPost("{clinicId:guid}/details")]
@@ -55,7 +55,10 @@ public sealed class ClinicManagementController(IClinicManagementService service,
     }
     /// <summary>Reports whether the current account may manage clinics.</summary>
     [HttpGet("access")]
-    public IActionResult Access() => Ok(new { CanManageClinics = ClinicAdministration.IsAllowed(User, configuration) });
+    public async Task<IActionResult> Access() => Ok(new
+    {
+        CanManageClinics = (await authorization.AuthorizeAsync(User, ClinicAdministration.Policy)).Succeeded
+    });
 
     /// <summary>Creates a clinic and future weekday slots for the next 15 calendar days.</summary>
     /// <response code="201">Clinic and slots created.</response>

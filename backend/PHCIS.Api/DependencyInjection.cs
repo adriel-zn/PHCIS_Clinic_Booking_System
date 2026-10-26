@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddAntiforgery(options => { options.HeaderName = "X-CSRF-TOKEN"; options.Cookie.Name = "__Host-PHCIS-CSRF"; options.Cookie.SecurePolicy = CookieSecurePolicy.Always; options.Cookie.SameSite = SameSiteMode.Strict; });
         services.AddScoped<AccountService>();
         services.AddScoped<AdministratorService>();
+        services.AddScoped<StaffService>();
         services.AddScoped<ValidateCsrfFilter>();
         services.AddControllers(options => options.Filters.AddService<ValidateCsrfFilter>())
             .AddJsonOptions(options =>
@@ -70,6 +71,7 @@ public static class DependencyInjection
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         })
+        .AddRoles<IdentityRole>()
         .AddEntityFrameworkStores<PhcisDbContext>()
         .AddSignInManager()
         .AddDefaultTokenProviders()
@@ -95,9 +97,16 @@ public static class DependencyInjection
             options.AddPolicy(ClinicAdministration.Policy, policy =>
             {
                 policy.RequireAuthenticatedUser();
-                policy.RequireAssertion(context => ClinicAdministration.IsAllowed(context.User, configuration));
+                policy.AddRequirements(new ClinicAdministratorRequirement());
+            });
+            options.AddPolicy(StaffAccessRequirement.Policy, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.AddRequirements(new StaffAccessRequirement());
             });
         });
+        services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, ClinicAdministratorHandler>();
+        services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, StaffAccessHandler>();
 
         services.AddSwaggerGen(options =>
         {

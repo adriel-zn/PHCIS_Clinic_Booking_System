@@ -109,7 +109,8 @@ public sealed class AdministrationWorkflowTests
         using var scope = factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<PortalUser>>();
         var user = await users.FindByEmailAsync("second@example.test");
-        Assert.Single(await users.GetClaimsAsync(user!));
+        Assert.True(await users.IsInRoleAsync(user!, PortalRoles.Admin));
+        Assert.True(await users.IsInRoleAsync(user!, PortalRoles.Patient));
     }
 
     [Fact]
