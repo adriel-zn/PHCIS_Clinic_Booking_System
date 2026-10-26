@@ -1,0 +1,50 @@
+@page "/appointments"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject TimeProvider Clock
+<PageTitle>My appointments · PHCIS</PageTitle>
+<h1>My Appointments</h1>
+<ApiError Error="_error" />
+@if (_appointments is not null)
+{
+    <div class="tabs" role="group" aria-label="Appointment categories">
+        <button class="@(_tab == "upcoming" ? "active" : "")" @onclick='() => _tab = "upcoming"'>Upcoming (@Upcoming.Count())</button>
+        <button class="@(_tab == "past" ? "active" : "")" @onclick='() => _tab = "past"'>Past (@Past.Count())</button>
+        <button class="@(_tab == "cancelled" ? "active" : "")" @onclick='() => _tab = "cancelled"'>Cancelled (@Cancelled.Count())</button>
+    </div>
+    <div class="table-scroll panel">
+        <table><thead><tr><th>Reference</th><th>Clinic</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        @foreach (var appointment in Current)
+        {
+            <tr>
+                <td class="reference-cell">@PortalDisplay.Reference(appointment.Id)</td><td>@appointment.ClinicName</td><td>@PortalDisplay.Date(appointment.StartsAt)</td><td>@PortalDisplay.Time(appointment.StartsAt)</td><td><span class="status-badge @appointment.Status.ToLowerInvariant()">@appointment.Status</span></td>
+                <td>
+                    @if (appointment.Status == "Scheduled" && appointment.StartsAt > Clock.GetUtcNow())
+                    {
+                        <div class="table-actions"><a href="@($"/clinics/{appointment.ClinicId}?reschedule={appointment.Id}")">Reschedule</a><a class="cancel-link" href="@($"/appointments/{appointment.Id}/cancel")">Cancel</a></div>
+                    }
+                    else { <span class="muted">—</span> }
+                </td>
+            </tr>
+        }
+        </tbody></table>
+        @if (!Current.Any()) { <p class="empty-table" role="status">No appointments in this category.</p> }
+    </div>
+}
+else if (_error is null) { <p role="status">Loading your appointments…</p> }
+@code {
+    private IReadOnlyList<AppointmentDetails>? _appointments;
+    private string _tab = "upcoming";
+    private AppointmentApiException? _error;
+    private IEnumerable<AppointmentDetails> Upcoming => _appointments!.Where(x => x.Status == "Scheduled" && x.StartsAt > Clock.GetUtcNow());
+    private IEnumerable<AppointmentDetails> Past => _appointments!.Where(x => x.Status != "Cancelled" && (x.Status != "Scheduled" || x.StartsAt <= Clock.GetUtcNow()));
+    private IEnumerable<AppointmentDetails> Cancelled => _appointments!.Where(x => x.Status == "Cancelled");
+    private IEnumerable<AppointmentDetails> Current => _tab == "past" ? Past : _tab == "cancelled" ? Cancelled : Upcoming;
+    protected override async Task OnInitializedAsync()
+    {
+        try { _appointments = await Portal.AppointmentsAsync(); }
+        catch (AppointmentApiException error) { _error = error; }
+    }
+}
+

@@ -1,0 +1,21 @@
+@using PHCIS.Web.Models
+<AppointmentReceipt Appointment="_latest" />
+<div class="workspace">
+    <AvailabilityPanel OnBooked="Remember" />
+    <aside>
+        <CancellationPanel AppointmentReference="_latest?.Id" OnCancelled="Remember" />
+        <section class="help-card">
+            <span class="eyebrow">Before your visit</span>
+            <h3>A little preparation helps.</h3>
+            <p>Keep your appointment reference somewhere safe. Contact your clinic if you need help with your visit.</p>
+            <p class="muted">Only future appointments can be cancelled.</p>
+        </section>
+    </aside>
+</div>
+
+@code {
+    // Session-only state: no patient or appointment payloads are persisted to browser storage.
+    private AppointmentSummary? _latest;
+    private void Remember(AppointmentSummary appointment) => _latest = appointment;
+}
+

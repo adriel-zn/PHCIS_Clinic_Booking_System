@@ -1,0 +1,70 @@
+@using PHCIS.Web.Models
+<section class="panel availability" aria-labelledby="availability-heading" aria-busy="@_busy.ToString().ToLowerInvariant()">
+    <div class="panel-heading">
+        <span class="step" aria-hidden="true">01</span>
+        <div><h2 id="availability-heading">Find your next visit</h2><p>Choose your clinic and a day that works for you.</p></div>
+    </div>
+    <EditForm EditContext="_editContext" OnValidSubmit="SearchAsync" FormName="slot-search">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <fieldset disabled="@_busy">
+            <div class="search-fields">
+                <div class="field" hidden="@(ClinicId is not null)">
+                    <label for="clinic-reference">Clinic reference</label>
+                    <InputText id="clinic-reference" @bind-Value="_search.ClinicReference" placeholder="Enter your clinic reference" autocomplete="off" />
+                    <small>Use the reference supplied by your clinic.</small>
+                </div>
+                <div class="field">
+                    <label for="visit-date">Visit date</label>
+                    <InputDate id="visit-date" @bind-Value="_search.Date" min="@_search.EarliestDate.ToString("yyyy-MM-dd")" />
+                    <small>Clinic time · @Options.TimeLabel</small>
+                </div>
+            </div>
+            <button type="submit" class="primary search-button">@(_busy ? "Please wait…" : "Find available slots") <span aria-hidden="true">→</span></button>
+        </fieldset>
+    </EditForm>
+
+    <ApiError Error="_error" />
+
+    @if (_page is not null)
+    {
+        <div class="results-heading"><h3>Available times</h3><span>@_query!.Date.ToString("ddd, dd MMM yyyy")</span></div>
+        @if (_page.Items.Count == 0)
+        {
+            <div class="empty-state" role="status"><span aria-hidden="true">◷</span><h3>No available slots</h3><p>Try another day or contact your clinic for help.</p></div>
+        }
+        else
+        {
+            <p class="muted">Select a time, then confirm your booking. Times shown in @Options.TimeLabel.</p>
+            <div class="slot-grid" role="group" aria-label="Available time slots">
+                @foreach (var slot in _page.Items)
+                {
+                    <button type="button" class="slot @(_selected?.Id == slot.Id ? "selected" : "")"
+                            disabled="@_busy" aria-pressed="@(_selected?.Id == slot.Id ? "true" : "false")"
+                            @onclick="() => Select(slot)" data-slot-id="@slot.Id">
+                        <strong>@Time(slot.StartsAt)</strong>
+                        <span>until @Time(slot.EndsAt)</span>
+                    </button>
+                }
+            </div>
+        }
+        <nav class="pagination" aria-label="Slot pages">
+            <button type="button" class="quiet" disabled="@(_busy || _page.Offset == 0)" @onclick="PreviousAsync">← Previous</button>
+            <span>Page @(_page.Offset / _page.Limit + 1)</span>
+            <button type="button" class="quiet" disabled="@(_busy || !_page.HasMore)" @onclick="NextAsync">Next →</button>
+        </nav>
+    }
+    else if (!_busy && _error is null)
+    {
+        <div class="empty-state"><span aria-hidden="true">◷</span><h3>A time that fits your day</h3><p>Search to see the latest availability at your clinic.</p></div>
+    }
+
+    @if (_selected is not null)
+    {
+        <section class="booking-review" aria-label="Review booking">
+            <div><span class="eyebrow">Your selection</span><h3>@_query!.Date.ToString("dd MMM yyyy") · @Time(_selected.StartsAt)–@Time(_selected.EndsAt)</h3><p>This time is reserved only once your booking is confirmed.</p></div>
+            <button type="button" class="primary" disabled="@_busy" @onclick="BookAsync">@(_busy ? "Please wait…" : ReviewInSeparatePage ? "Continue to patient details →" : "Confirm booking")</button>
+        </section>
+    }
+</section>
+

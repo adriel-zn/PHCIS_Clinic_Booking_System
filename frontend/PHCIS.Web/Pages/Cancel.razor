@@ -1,0 +1,51 @@
+@page "/appointments/{AppointmentId:guid}/cancel"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject IAppointmentApiClient Api
+@inject NavigationManager Navigation
+<PageTitle>Cancel appointment · PHCIS</PageTitle>
+<h1>Cancel Appointment</h1>
+<ApiError Error="_error" />
+@if (_appointment is not null)
+{
+    <section class="panel cancel-panel">
+        <div class="warning-symbol" aria-hidden="true">⚠</div>
+        <h2>Are you sure you want to cancel this appointment?</h2>
+        <dl class="details-table cancellation-summary"><dt>Clinic</dt><dd>@_appointment.ClinicName</dd><dt>Date</dt><dd>@PortalDisplay.Date(_appointment.StartsAt)</dd><dt>Time</dt><dd>@PortalDisplay.Time(_appointment.StartsAt)–@PortalDisplay.Time(_appointment.EndsAt)</dd><dt>Reference</dt><dd>@PortalDisplay.Reference(_appointment.Id)</dd></dl>
+        <EditForm Model="_model" OnValidSubmit="CancelAsync" FormName="cancel-review">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="field"><label for="cancel-reason">Reason for cancelling</label><InputTextArea id="cancel-reason" @bind-Value="_model.Reason" maxlength="500" rows="3" /></div>
+                <label class="checkbox-label"><InputCheckbox @bind-Value="_model.Confirmed" /> I understand this cancellation cannot be undone.</label>
+                <div class="button-row"><a class="button quiet" href="/appointments">Keep Appointment</a><button type="submit" class="danger">@(_busy ? "Cancelling…" : "Cancel Appointment")</button></div>
+            </fieldset>
+        </EditForm>
+    </section>
+}
+else if (_error is null) { <p role="status">Loading appointment…</p> }
+@code {
+    [Parameter] public Guid AppointmentId { get; set; }
+    private AppointmentDetails? _appointment;
+    private readonly CancellationModel _model = new();
+    private AppointmentApiException? _error;
+    private bool _busy;
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _appointment = (await Portal.AppointmentsAsync()).FirstOrDefault(x => x.Id == AppointmentId);
+            _model.AppointmentReference = AppointmentId.ToString();
+            if (_appointment is null) _error = new AppointmentApiException(404, "Appointment not found for your account.");
+        }
+        catch (AppointmentApiException error) { _error = error; }
+    }
+    private async Task CancelAsync()
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await Api.CancelAsync(AppointmentId, _model.Reason, default); Navigation.NavigateTo("/appointments"); }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}
+

@@ -1,0 +1,30 @@
+@using PHCIS.Web.Services
+@if (Error is not null)
+{
+    <div class="notice error" role="alert">
+        <strong>We couldn't complete that request.</strong>
+        <p>@Error.Message</p>
+        @if (Error.Errors.Count > 0)
+        {
+            <ul>
+                @foreach (var message in Error.Errors.Values.SelectMany(messages => messages).Distinct())
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+        @if (Error.StatusCode == 401)
+        {
+            <a href="login">Sign in again</a>
+        }
+        @if (!string.IsNullOrWhiteSpace(Error.TraceId))
+        {
+            <small>Support reference: @Error.TraceId</small>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public AppointmentApiException? Error { get; set; }
+}
+

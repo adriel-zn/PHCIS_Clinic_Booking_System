@@ -1,0 +1,33 @@
+@page "/booking"
+@page "/clinics"
+@attribute [Authorize]
+@inject PortalClient Portal
+<PageTitle>Available clinics · PHCIS</PageTitle>
+<div class="page-heading"><div><h1>Available Clinics</h1><p class="muted">Find a clinic near you</p></div><input class="clinic-search" aria-label="Search clinics" placeholder="⌕  Search clinics…" @bind="_search" @bind:event="oninput" /></div>
+<ApiError Error="_error" />
+@if (_clinics is null && _error is null) { <p role="status">Loading clinics…</p> }
+else if (_clinics is not null)
+{
+    <div class="clinic-grid">
+        @foreach (var clinic in _clinics.Where(x => x.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) || x.Address.Contains(_search, StringComparison.OrdinalIgnoreCase)))
+        {
+            <article class="clinic-card">
+                <img src="images/clinic-exterior.png" alt="Illustrative image of a community clinic" />
+                <h2>@clinic.Name</h2>
+                <p><Icon Name="location" /> @clinic.Address</p><p><Icon Name="phone" /> @clinic.PhoneNumber</p><p><Icon Name="clock" /> Mon–Fri: 08:00–17:00</p>
+                <a class="button primary full" href="@($"/clinics/{clinic.Id}")">View Available Slots</a>
+            </article>
+        }
+    </div>
+}
+@code {
+    private IReadOnlyList<ClinicCard>? _clinics;
+    private string _search = "";
+    private AppointmentApiException? _error;
+    protected override async Task OnInitializedAsync()
+    {
+        try { _clinics = await Portal.ClinicsAsync(); }
+        catch (AppointmentApiException error) { _error = error; }
+    }
+}
+

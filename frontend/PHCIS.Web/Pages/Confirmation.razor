@@ -1,0 +1,34 @@
+@page "/appointments/{AppointmentId:guid}/confirmation"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject LocalAuthenticationStateProvider Session
+<PageTitle>Booking confirmation · PHCIS</PageTitle>
+<ApiError Error="_error" />
+@if (_appointment is not null)
+{
+    <section class="panel confirmation-panel">
+        <div class="success-symbol" aria-hidden="true">@(_appointment.Status == "Cancelled" ? "×" : "✓")</div>
+        <h1>@(_appointment.Status == "Cancelled" ? "Appointment Cancelled" : "Appointment Confirmed Successfully!")</h1>
+        <p>@(_appointment.Status == "Cancelled" ? "This appointment has been cancelled." : "Your appointment has been saved.")</p>
+        <div class="booking-reference"><small>Booking Reference</small><strong>@PortalDisplay.Reference(_appointment.Id)</strong></div>
+        <dl class="details-table"><dt>Clinic</dt><dd>@_appointment.ClinicName</dd><dt>Date</dt><dd>@PortalDisplay.Date(_appointment.StartsAt)</dd><dt>Time</dt><dd>@PortalDisplay.Time(_appointment.StartsAt)–@PortalDisplay.Time(_appointment.EndsAt)</dd><dt>Patient</dt><dd>@Session.Profile?.FullName</dd><dt>Reason</dt><dd>@_appointment.ReasonForVisit</dd></dl>
+        <p class="muted">Keep your reference. You can manage this visit from My Appointments.</p>
+        <div class="button-row"><a class="button primary" href="/appointments">View My Appointments</a><a class="button quiet" href="/clinics">Book Another Appointment</a></div>
+    </section>
+}
+else if (_error is null) { <p role="status">Loading your confirmation…</p> }
+@code {
+    [Parameter] public Guid AppointmentId { get; set; }
+    private AppointmentDetails? _appointment;
+    private AppointmentApiException? _error;
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _appointment = (await Portal.AppointmentsAsync()).FirstOrDefault(x => x.Id == AppointmentId);
+            if (_appointment is null) _error = new AppointmentApiException(404, "Appointment not found for your account.");
+        }
+        catch (AppointmentApiException error) { _error = error; }
+    }
+}
+

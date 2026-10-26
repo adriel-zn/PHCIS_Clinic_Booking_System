@@ -1,0 +1,20 @@
+@using PHCIS.Web.Models
+@if (Appointment is not null)
+{
+    <section class="notice success receipt" role="status" aria-live="polite">
+        <span class="receipt-icon" aria-hidden="true">✓</span>
+        <div>
+            <h2>@(Appointment.Status == "Cancelled" ? "Appointment cancelled" : "Your appointment is booked")</h2>
+            <p>@(Appointment.Status == "Cancelled"
+                ? "Your cancellation has been saved."
+                : "Keep this reference. You can use it to cancel before your visit starts.")</p>
+            <label for="appointment-reference">Appointment reference</label>
+            <input id="appointment-reference" class="reference" readonly value="@Appointment.Id" />
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public AppointmentSummary? Appointment { get; set; }
+}
+

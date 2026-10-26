@@ -1,0 +1,93 @@
+@page "/book/{ClinicId:guid}"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject IAppointmentApiClient Api
+@inject LocalAuthenticationStateProvider Session
+@inject NavigationManager Navigation
+<PageTitle>Book appointment · PHCIS</PageTitle>
+<h1>@(Reschedule is null ? "Book Appointment" : "Reschedule Appointment")</h1>
+<div class="booking-steps" aria-label="Booking progress"><span class="done">1<small>Clinic &amp; Time</small></span><i></i><span class="@(_stage >= 2 ? "done" : "")">2<small>Patient Details</small></span><i></i><span class="@(_stage == 3 ? "done" : "")">3<small>Confirm</small></span></div>
+<ApiError Error="_error" />
+@if (_slot is not null && _clinic is not null && Session.Profile is not null)
+{
+    <section class="panel booking-panel">
+        <h2>@(_stage == 3 ? "Confirm Your Appointment" : "Appointment Summary")</h2>
+        <div class="summary-card">
+            <img src="images/clinic-exterior.png" alt="Illustrative image of a community clinic" />
+            <div><h3>@_clinic.Name</h3><p>@_clinic.Address</p></div>
+            <dl><dt>Date</dt><dd>@PortalDisplay.Date(_slot.StartsAt)</dd><dt>Time</dt><dd>@PortalDisplay.Time(_slot.StartsAt)–@PortalDisplay.Time(_slot.EndsAt)</dd></dl>
+        </div>
+        <h2>@(_stage == 3 ? "Appointment Details" : "Patient Details")</h2>
+        @if (_stage == 2)
+        {
+            <div class="field"><label>Full name</label><input readonly value="@Session.Profile.FullName" /></div>
+            <div class="form-grid">
+                <div class="field"><label>Phone number</label><input readonly value="@Session.Profile.PhoneNumber" /></div>
+                <div class="field"><label for="visit-reason">Reason for visit</label><select id="visit-reason" @bind="_reason" disabled="@(Reschedule is not null)"><option>General consultation</option><option>Follow-up appointment</option><option>Routine check-up</option></select></div>
+            </div>
+            <p class="muted">Need to change your personal details? <a href="/profile">Update your profile</a> before booking.</p>
+        }
+        else
+        {
+            <dl class="details-table">
+                <dt>Clinic</dt><dd>@_clinic.Name</dd><dt>Address</dt><dd>@_clinic.Address</dd>
+                <dt>Date</dt><dd>@PortalDisplay.Date(_slot.StartsAt)</dd><dt>Time</dt><dd>@PortalDisplay.Time(_slot.StartsAt)–@PortalDisplay.Time(_slot.EndsAt)</dd>
+                <dt>Patient</dt><dd>@Session.Profile.FullName</dd><dt>Phone</dt><dd>@Session.Profile.PhoneNumber</dd><dt>Reason</dt><dd>@_reason</dd>
+            </dl>
+        }
+        <div class="button-row">
+            <button type="button" class="quiet" disabled="@_busy" @onclick="Back">← Back</button>
+            @if (_stage == 2) { <button type="button" class="primary" @onclick="() => _stage = 3">Next →</button> }
+            else { <button type="button" class="confirm-button" disabled="@_busy" @onclick="ConfirmAsync">@(_busy ? "Saving…" : "✓ Confirm Booking")</button> }
+        </div>
+    </section>
+}
+else if (_error is null) { <p role="status">Loading appointment details…</p> }
+@code {
+    [Parameter] public Guid ClinicId { get; set; }
+    [SupplyParameterFromQuery(Name = "slot")] public Guid SlotId { get; set; }
+    [SupplyParameterFromQuery] public Guid? Reschedule { get; set; }
+    private ClinicCard? _clinic;
+    private SlotSummary? _slot;
+    private int _stage = 2;
+    private bool _busy;
+    private string _reason = "General consultation";
+    private AppointmentApiException? _error;
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _clinic = (await Portal.ClinicsAsync()).FirstOrDefault(x => x.Id == ClinicId);
+            _slot = await Portal.SlotAsync(ClinicId, SlotId);
+            if (_clinic is null) throw new AppointmentApiException(404, "Clinic not found.");
+            if (Reschedule is not null)
+            {
+                var existing = (await Portal.AppointmentsAsync()).FirstOrDefault(x => x.Id == Reschedule);
+                if (existing is null) throw new AppointmentApiException(404, "Appointment not found.");
+                _reason = existing.ReasonForVisit;
+            }
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        catch (HttpRequestException) { _error = new AppointmentApiException(0, "The service could not be reached."); }
+    }
+    private void Back()
+    {
+        if (_stage == 3) _stage = 2;
+        else Navigation.NavigateTo($"/clinics/{ClinicId}");
+    }
+    private async Task ConfirmAsync()
+    {
+        if (_busy || _slot is null) return;
+        _busy = true; _error = null;
+        try
+        {
+            var appointment = Reschedule is null
+                ? await Api.BookAsync(_slot.Id, default, _reason)
+                : await Api.RescheduleAsync(Reschedule.Value, _slot.Id, default);
+            Navigation.NavigateTo($"/appointments/{appointment.Id}/confirmation");
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}
+

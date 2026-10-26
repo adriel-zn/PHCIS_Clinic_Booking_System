@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 550" role="img" aria-label="Community clinic illustration">
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#84c5ee"/><stop offset="1" stop-color="#e4f3fd"/></linearGradient><linearGradient id="wall" x2="0" y2="1"><stop stop-color="#f1e7d5"/><stop offset="1" stop-color="#c9b99b"/></linearGradient></defs>
+<path fill="url(#sky)" d="M0 0h1000v550H0z"/><path fill="#65874d" d="M0 327Q80 253 155 330Q240 238 310 320Q410 230 494 314Q650 244 742 322Q855 241 1000 309v241H0z"/>
+<path fill="#68864f" d="M0 415h1000v135H0z"/><path fill="#b3b8b3" d="M0 485h1000v65H0z"/><path fill="url(#wall)" d="M158 191h692v253H158z"/><path fill="#e9ddc4" d="M134 182h740v39H134z"/><path fill="#9a8f7a" d="m134 182 222-73h378l140 73z"/>
+<path fill="#edf1ec" d="M350 169h305v63H350z"/><text x="503" y="196" text-anchor="middle" fill="#18426a" font-size="21" font-family="Arial" font-weight="bold">COMMUNITY HEALTH CLINIC</text><text x="503" y="220" text-anchor="middle" fill="#426b71" font-size="13" font-family="Arial">QUALITY CARE FOR YOUR COMMUNITY</text>
+<g fill="#335d70" stroke="#eee5d2" stroke-width="12"><path d="M193 257h99v107h-99zM320 257h95v107h-95zM594 257h99v107h-99zM723 257h95v107h-95z"/></g>
+<path fill="#29516b" d="M447 260h111v184H447z"/><path stroke="#d4ddd8" stroke-width="5" d="M503 260v184M447 323h111"/><path fill="#e3d9c4" d="M418 248h171v18H418z"/>
+<g fill="#f7f4e9"><path d="M167 218h18v226h-18zM422 218h17v226h-17zM565 218h17v226h-17zM833 218h17v226h-17z"/></g>
+<path fill="#c4c7bf" d="M414 444h183l74 58H340z"/><path fill="#527844" d="M170 422h231v30H170zM614 422h215v30H614z"/>
+<circle cx="79" cy="303" r="64" fill="#426f3d"/><path stroke="#6c6047" stroke-width="15" d="M79 330v125"/><path fill="#fff" d="M72 265h14v54H72zM51 285h56v14H51z"/>
+</svg>
+

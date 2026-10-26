@@ -1,0 +1,55 @@
+@page "/register"
+@layout PublicLayout
+@inject AccountClient Accounts
+@inject NavigationManager Navigation
+<PageTitle>Register as a patient · PHCIS</PageTitle>
+<div class="login-scene">
+    <section class="login-card registration-card" aria-labelledby="register-heading">
+        <div class="login-brand">
+            <span class="medical-plus" aria-hidden="true">✚</span>
+            <h1>PHCIS</h1>
+            <strong>Clinic Booking System</strong>
+        </div>
+        <h2 id="register-heading">Register as a Patient</h2>
+        <p class="muted">Create your account to book appointments</p>
+        <EditForm Model="_model" OnValidSubmit="RegisterAsync" FormName="patient-register">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="form-grid">
+                    <div class="field"><label for="first-name">First name *</label><InputText id="first-name" @bind-Value="_model.FirstName" autocomplete="given-name" /></div>
+                    <div class="field"><label for="last-name">Last name *</label><InputText id="last-name" @bind-Value="_model.LastName" autocomplete="family-name" /></div>
+                    <div class="field"><label for="register-email">Email *</label><InputText id="register-email" type="email" @bind-Value="_model.Email" autocomplete="email" /></div>
+                    <div class="field"><label for="phone">Phone number *</label><InputText id="phone" @bind-Value="_model.PhoneNumber" autocomplete="tel" /></div>
+                    <div class="field"><label for="date-of-birth">Date of birth *</label><InputDate id="date-of-birth" @bind-Value="_model.DateOfBirth" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" /></div>
+                    <div class="field"><label for="national-id">ID number (optional)</label><InputText id="national-id" @bind-Value="_model.NationalId" maxlength="20" autocomplete="off" /></div>
+                </div>
+                <div class="field"><label for="new-password">Password *</label><InputText id="new-password" type="password" @bind-Value="_model.Password" autocomplete="new-password" /><small>At least 10 characters with uppercase, lowercase, a number and a symbol.</small></div>
+                <div class="field"><label for="confirm-password">Confirm password *</label><InputText id="confirm-password" type="password" @bind-Value="_model.ConfirmPassword" autocomplete="new-password" /></div>
+                <button type="submit" class="primary full">@(_busy ? "Creating account…" : "Register")</button>
+            </fieldset>
+        </EditForm>
+        <ApiError Error="_error" />
+        <p class="register-link">Already have an account? <a href="/login">Sign in</a></p>
+    </section>
+    <div class="login-caption">Quality Healthcare<br />for Healthier Communities</div>
+</div>
+@code {
+    private readonly RegisterModel _model = new();
+    private bool _busy;
+    private AppointmentApiException? _error;
+    private async Task RegisterAsync()
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try
+        {
+            await Accounts.RegisterAsync(_model);
+            await Accounts.LoginAsync(new LoginModel { Email = _model.Email, Password = _model.Password });
+            Navigation.NavigateTo("/");
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        catch (Exception) { _error = new AppointmentApiException(0, "Your account could not be created. Please try again."); }
+        finally { _model.Password = ""; _model.ConfirmPassword = ""; _busy = false; }
+    }
+}
+

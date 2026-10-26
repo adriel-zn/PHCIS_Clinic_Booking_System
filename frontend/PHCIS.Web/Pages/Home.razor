@@ -1,0 +1,8 @@
+@page "/"
+<PageTitle>Dashboard · PHCIS</PageTitle>
+<AuthorizeView>
+    <Authorized><Dashboard /></Authorized>
+    <NotAuthorized><LoginPanel /></NotAuthorized>
+    <Authorizing><p role="status">Loading your account…</p></Authorizing>
+</AuthorizeView>
+

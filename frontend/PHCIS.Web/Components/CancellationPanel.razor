@@ -1,0 +1,27 @@
+@using PHCIS.Web.Models
+<section class="panel cancellation" aria-labelledby="cancellation-heading" aria-busy="@_busy.ToString().ToLowerInvariant()">
+    <div class="panel-heading"><span class="step secondary" aria-hidden="true">02</span><div><h2 id="cancellation-heading">Plans changed?</h2><p>Cancel a visit you can no longer attend.</p></div></div>
+    <p class="muted">You can cancel before the appointment starts. Your cancellation cannot be undone.</p>
+    <EditForm Model="_model" OnValidSubmit="CancelAsync" FormName="cancel-appointment">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <fieldset disabled="@_busy">
+            <div class="field">
+                <label for="cancel-reference">Appointment reference</label>
+                <InputText id="cancel-reference" @bind-Value="_model.AppointmentReference" autocomplete="off" placeholder="From your booking confirmation" />
+            </div>
+            <div class="field">
+                <label for="cancel-reason">Reason for cancelling</label>
+                <InputTextArea id="cancel-reason" @bind-Value="_model.Reason" rows="3" maxlength="500" placeholder="Tell us why you need to cancel" />
+                <small>Maximum 500 characters.</small>
+            </div>
+            <label class="checkbox-label" for="cancel-confirm">
+                <InputCheckbox id="cancel-confirm" @bind-Value="_model.Confirmed" />
+                <span>I understand this will cancel my appointment.</span>
+            </label>
+            <button type="submit" class="danger">@(_busy ? "Cancelling…" : "Cancel appointment")</button>
+        </fieldset>
+    </EditForm>
+    <ApiError Error="_error" />
+</section>
+
