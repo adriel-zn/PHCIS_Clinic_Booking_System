@@ -14,7 +14,7 @@ namespace PHCIS.Api.Controllers;
 [Authorize(Policy = PatientIdentity.Policy)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-public sealed class StaffAppointmentsController(IStaffAppointmentService service, IAuthorizationService authorization,
+public sealed class StaffAppointmentsController(IStaffAppointmentService service, IAuthorizationService authorization, AccountAccess access,
     ILogger<StaffAppointmentsController> logger) : ControllerBase
 {
     /// <summary>Reports current Staff dashboard access.</summary>
@@ -31,8 +31,17 @@ public sealed class StaffAppointmentsController(IStaffAppointmentService service
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<StaffAppointmentsPage>> List([FromQuery] Guid clinicId, [FromQuery] DateOnly date,
-        [FromQuery] string? status, CancellationToken cancellationToken, [FromQuery] int offset = 0, [FromQuery] int limit = 50) =>
-        Ok(await service.ListAsync(new StaffAppointmentsRequest(clinicId, date, status, offset, limit), cancellationToken));
+        [FromQuery] string? status, CancellationToken cancellationToken, [FromQuery] int offset = 0, [FromQuery] int limit = 50)
+    {
+        if (!await access.ClinicAsync(User, clinicId))
+            return Forbid();
+        return Ok(await service.ListAsync(new StaffAppointmentsRequest(clinicId, date, status, offset, limit), cancellationToken));
+    }
+
+    /// <summary>Lists only clinics assigned to the current Staff account.</summary>
+    [HttpGet("clinics")]
+    [Authorize(Policy = StaffAccessRequirement.Policy)]
+    public async Task<IActionResult> Clinics() => Ok(await access.ClinicsAsync(User));
 
     /// <summary>Marks a Scheduled appointment Completed after its slot ends.</summary>
     [HttpPost("{clinicId:guid}/{appointmentId:guid}/completion")]
@@ -41,6 +50,8 @@ public sealed class StaffAppointmentsController(IStaffAppointmentService service
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Complete(Guid clinicId, Guid appointmentId, FinalizeAppointmentBody request, CancellationToken cancellationToken)
     {
+        if (!await access.ClinicAsync(User, clinicId))
+            return Forbid();
         await service.CompleteAsync(clinicId, appointmentId, cancellationToken);
         LogTransition(clinicId, appointmentId, "Completed");
         return NoContent();
@@ -53,6 +64,8 @@ public sealed class StaffAppointmentsController(IStaffAppointmentService service
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> NoShow(Guid clinicId, Guid appointmentId, FinalizeAppointmentBody request, CancellationToken cancellationToken)
     {
+        if (!await access.ClinicAsync(User, clinicId))
+            return Forbid();
         await service.MarkNoShowAsync(clinicId, appointmentId, cancellationToken);
         LogTransition(clinicId, appointmentId, "NoShow");
         return NoContent();

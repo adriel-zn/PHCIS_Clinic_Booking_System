@@ -130,7 +130,7 @@ public sealed class StaffDashboardTests : BunitContext
         {
             if (request.RequestUri!.AbsolutePath == "/api/staff-appointments/access")
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new StaffDashboardAccess(allowed)) });
-            if (request.RequestUri.AbsolutePath == "/api/clinics")
+            if (request.RequestUri.AbsolutePath == "/api/staff-appointments/clinics")
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = JsonContent.Create(new[] { new ClinicCard(_clinicId, "Test clinic", "Main Street", null) })

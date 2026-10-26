@@ -95,7 +95,7 @@ public sealed class StaffAppointmentTests
         await factory.SeedAsync();
         using var client = factory.Client(factory.Token());
         var id = await AddAppointmentAsync(factory, DomainTestData.Now.AddHours(-2), DomainTestData.Now.AddHours(-1));
-        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/staff-appointments/{Guid.NewGuid()}/{id}/completion",
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/staff-appointments/{Guid.NewGuid()}/{id}/completion",
             new { confirmStatusChange = true })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/staff-appointments/{factory.ClinicId}/{Guid.NewGuid()}/no-show",
             new { confirmStatusChange = true })).StatusCode);

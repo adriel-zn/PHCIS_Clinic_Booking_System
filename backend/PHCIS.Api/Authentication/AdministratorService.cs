@@ -13,12 +13,11 @@ public sealed class AdministratorService(UserManager<PortalUser> users, RoleMana
     PhcisDbContext context, ILogger<AdministratorService> logger)
 {
     // The SQL transaction protects multiple API instances; this gate also supports nonrelational test stores.
-    private static readonly SemaphoreSlim RoleChanges = new(1, 1);
 
     /// <summary>Lists current administrators using AspNetUsers and AspNetUserRoles.</summary>
     public async Task<IReadOnlyList<AdministratorDetails>> ListAsync(string actorId)
     {
-        var administrators = await users.GetUsersInRoleAsync(PortalRoles.Admin);
+        var administrators = (await users.GetUsersInRoleAsync(PortalRoles.Admin)).Where(u => u.IsActive && !u.IsDeleted).ToList();
         return administrators.OrderBy(x => x.Email).Select(x => new AdministratorDetails(
             x.Id, x.Email ?? x.UserName ?? "", x.Id == actorId, administrators.Count > 1)).ToArray();
     }
@@ -32,7 +31,7 @@ public sealed class AdministratorService(UserManager<PortalUser> users, RoleMana
             return;
         var role = await roles.FindByNameAsync(PortalRoles.Admin)
             ?? throw new InvalidOperationException("Admin role is missing.");
-        if (await context.UserRoles.CountAsync(x => x.RoleId == role.Id) <= 1)
+        if (user.IsActive && !user.IsDeleted && await context.UserRoles.CountAsync(x => x.RoleId == role.Id && context.Users.Any(u => u.Id == x.UserId && u.IsActive && !u.IsDeleted)) <= 1)
             throw new DomainRuleException("The last administrator cannot be removed. Add another administrator first.");
         EnsureSuccess(await users.RemoveFromRoleAsync(user, PortalRoles.Admin));
         logger.LogInformation("Administrator {ActorId} removed administrator access from account {TargetId}.", actorId, user.Id);
@@ -43,6 +42,8 @@ public sealed class AdministratorService(UserManager<PortalUser> users, RoleMana
     {
         var user = await users.FindByEmailAsync(email.Trim())
             ?? throw new ResourceNotFoundException("No registered account has this email. Ask the person to register first.");
+        if (!user.IsActive || user.IsDeleted)
+            throw new DomainRuleException("Activate this account before assigning administrator access.");
         if (await users.IsInRoleAsync(user, PortalRoles.Admin))
             return;
         EnsureSuccess(await users.AddToRoleAsync(user, PortalRoles.Admin));
@@ -57,7 +58,7 @@ public sealed class AdministratorService(UserManager<PortalUser> users, RoleMana
 
     private async Task ChangeAsync(Func<Task> change)
     {
-        await RoleChanges.WaitAsync();
+        await AccountAdministrationGate.Changes.WaitAsync();
         try
         {
             await context.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
@@ -69,7 +70,7 @@ public sealed class AdministratorService(UserManager<PortalUser> users, RoleMana
                     await transaction.CommitAsync();
             });
         }
-        finally { RoleChanges.Release(); }
+        finally { AccountAdministrationGate.Changes.Release(); }
     }
 }
 

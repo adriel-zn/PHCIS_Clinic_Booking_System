@@ -1,5 +1,7 @@
 # PHCIS Local Development
 
+> Current platform setup: [clinic-scoped Staff, user management, Docker, logs, email/reminders, SignalR and GraphQL](PLATFORM_DEVELOPMENT.md). This supersedes the earlier all-clinic Staff access note below.
+
 ## Local Development: SQL Server and EF Identity
 
 The portal now uses simple email/password login with ASP.NET Core Identity and EF Core. External OIDC/JWT configuration has been removed. Passwords are hashed by Identity, and sessions use secure HttpOnly cookies.
@@ -119,7 +121,7 @@ Both writes require CSRF protection and explicit confirmation. The API uses User
 
 #### Staff Appointment Dashboard
 
-An administrator first assigns Staff through **Manage clinics > View and manage staff**. Sign out and back in (or refresh) and open **Staff dashboard** in the sidebar, or `/staff-dashboard`. Admin membership alone does not authorize the dashboard; an administrator may assign Staff to their own account. Staff assignment currently covers appointments across all clinics: there is no per-clinic staff-assignment model.
+An administrator assigns Staff and then specific clinics through **Manage clinics > View and manage staff**. Sign out and back in (or refresh) and open **Staff dashboard** in the sidebar, or `/staff-dashboard`. Admin membership alone does not authorize the dashboard; an administrator may assign Staff and clinics to their own account. Staff may view/update appointments only in their assigned clinics; no assignments means no clinic appointment access.
 
 Choose a clinic, South African calendar date and optional status, then select **View appointments**. Results include appointment reference, patient name, slot times and status, with 50 appointments per page and Previous/Next navigation. Contact details, national IDs, dates of birth and visit reasons are not returned by this staff view. The API validates the clinic, date, status and paging inputs and limits each page to at most 100 rows. The UI snapshots loaded filters so changing the search inputs does not change the clinic attached to an action on an already-loaded appointment.
 

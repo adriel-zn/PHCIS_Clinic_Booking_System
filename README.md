@@ -1,5 +1,7 @@
 # PHCIS Clinic Booking System
 
+> **Platform additions:** [Clinic assignments, user management, Docker, logging, development email, SignalR and GraphQL](documentation/PLATFORM_DEVELOPMENT.md). Staff now require explicit clinic assignments. Account deletion archives access while preserving clinical history.
+
 > **Current local setup:** [SQL Server and EF Identity run guide](documentation/LOCAL_DEVELOPMENT.md).
 > The portal now uses simple email/password login backed by EF Core Identity, not external OIDC/JWT.
 > Set `ConnectionStrings:Phcis` in the API appsettings file and start the API; pending EF migrations run automatically. See the [SQL Server setup guide](documentation/LOCAL_DEVELOPMENT.md#use-your-own-sql-server).

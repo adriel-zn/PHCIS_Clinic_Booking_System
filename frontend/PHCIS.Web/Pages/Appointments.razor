@@ -1,5 +1,6 @@
 @page "/appointments"
 @attribute [Authorize]
+@implements IDisposable
 @inject PortalClient Portal
 @inject TimeProvider Clock
 <PageTitle>My appointments · PHCIS</PageTitle>
@@ -43,8 +44,16 @@ else if (_error is null) { <p role="status">Loading your appointments…</p> }
     private IEnumerable<AppointmentDetails> Current => _tab == "past" ? Past : _tab == "cancelled" ? Cancelled : Upcoming;
     protected override async Task OnInitializedAsync()
     {
+        Portal.AppointmentsChanged += LiveRefreshAsync;
         try { _appointments = await Portal.AppointmentsAsync(); }
         catch (AppointmentApiException error) { _error = error; }
     }
+    private async Task LiveRefreshAsync() => await InvokeAsync(async () =>
+    {
+        try { _appointments = await Portal.AppointmentsAsync(); }
+        catch (AppointmentApiException error) { _error = error; }
+        StateHasChanged();
+    });
+    public void Dispose() => Portal.AppointmentsChanged -= LiveRefreshAsync;
 }
 

@@ -21,6 +21,7 @@ options.BaseUrl = apiUri.AbsoluteUri.TrimEnd('/') + "/";
 
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<RealtimeUpdates>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddTransient<CookieSessionHandler>();
 builder.Services.AddHttpClient("Api", client =>
@@ -37,6 +38,6 @@ builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.Authent
 builder.Services.AddScoped<AccountClient>(services => new AccountClient(
     services.GetRequiredService<IHttpClientFactory>().CreateClient("Api"), services.GetRequiredService<LocalAuthenticationStateProvider>()));
 builder.Services.AddScoped<PortalClient>(services => new PortalClient(
-    services.GetRequiredService<IHttpClientFactory>().CreateClient("Api")));
+    services.GetRequiredService<IHttpClientFactory>().CreateClient("Api"), options));
 await builder.Build().RunAsync();
 

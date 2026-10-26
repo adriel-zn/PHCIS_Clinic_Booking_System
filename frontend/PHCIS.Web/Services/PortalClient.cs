@@ -5,8 +5,15 @@ using PHCIS.Web.Models;
 namespace PHCIS.Web.Services;
 
 /// <summary>Read-only API contracts for the clinic directory and patient-owned appointment list.</summary>
-public sealed class PortalClient(HttpClient http)
+public sealed class PortalClient(HttpClient http, PHCIS.Web.Configuration.PortalOptions? options = null)
 {
+    public event Func<Task>? AppointmentsChanged;
+    public async Task NotifyChangedAsync()
+    {
+        if (AppointmentsChanged is not null)
+            foreach (Func<Task> changed in AppointmentsChanged.GetInvocationList())
+                await changed();
+    }
     public Task<ClinicManagementAccess> ClinicManagementAccessAsync() =>
         ReadAsync<ClinicManagementAccess>("api/clinic-management/access");
 
@@ -22,9 +29,46 @@ public sealed class PortalClient(HttpClient http)
     public Task RemoveStaffAsync(string id) =>
         WriteAsync($"api/staff/{Uri.EscapeDataString(id)}/removal", new { ConfirmRemoval = true });
     public Task<StaffDashboardAccess> StaffDashboardAccessAsync() => ReadAsync<StaffDashboardAccess>("api/staff-appointments/access");
-    public Task<StaffAppointmentsPage> ClinicAppointmentsAsync(Guid clinicId, DateOnly date, string? status, int offset) =>
-        ReadAsync<StaffAppointmentsPage>($"api/staff-appointments?clinicId={clinicId}&date={date:yyyy-MM-dd}&offset={offset}&limit=50" +
+    public async Task<IReadOnlyList<ClinicCard>> StaffClinicsAsync() => await ReadAsync<List<ClinicCard>>("api/staff-appointments/clinics");
+    public Task<UserManagementAccess> UserManagementAccessAsync() => ReadAsync<UserManagementAccess>("api/users/access");
+    public Task<ManagedUsersPage> UsersAsync(int offset, string search) => ReadAsync<ManagedUsersPage>($"api/users?offset={offset}&limit=50&search={Uri.EscapeDataString(search)}");
+    public Task EditUserAsync(string id, ManagedProfileModel model) => WriteAsync($"api/users/{Uri.EscapeDataString(id)}/profile", model);
+    public Task SetUserStateAsync(string id, bool active, bool delete) => WriteAsync($"api/users/{Uri.EscapeDataString(id)}/state", new { IsActive = active, Delete = delete, ConfirmChange = true });
+    public Task CreateUserAsync(RegisterModel model) => WriteAsync("api/users", new
+    {
+        model.FirstName,
+        model.LastName,
+        model.Email,
+        model.PhoneNumber,
+        model.DateOfBirth,
+        model.Password,
+        model.NationalId
+    });
+    public async Task<IReadOnlyList<ClinicCard>> AssignedStaffClinicsAsync(string id) =>
+        await ReadAsync<List<ClinicCard>>($"api/staff/{Uri.EscapeDataString(id)}/clinics");
+    public Task AssignStaffClinicAsync(string id, Guid clinicId) => WriteAsync($"api/staff/{Uri.EscapeDataString(id)}/clinics", new { ClinicId = clinicId, ConfirmAssignment = true });
+    public Task RemoveStaffClinicAsync(string id, Guid clinicId) => WriteAsync($"api/staff/{Uri.EscapeDataString(id)}/clinics/{clinicId}/removal", new { ConfirmRemoval = true });
+    public async Task<StaffAppointmentsPage> ClinicAppointmentsAsync(Guid clinicId, DateOnly date, string? status, int offset)
+    {
+        if (options?.UseGraphQL != true)
+            return await ReadAsync<StaffAppointmentsPage>($"api/staff-appointments?clinicId={clinicId}&date={date:yyyy-MM-dd}&offset={offset}&limit=50" +
             (string.IsNullOrEmpty(status) ? "" : $"&status={Uri.EscapeDataString(status)}"));
+        var statusLiteral = string.IsNullOrEmpty(status) ? "null" : JsonSerializer.Serialize(status);
+        var query = $"query {{ clinicAppointments(clinicId: \"{clinicId:D}\", date: \"{date:yyyy-MM-dd}\", status: {statusLiteral}, offset: {offset}, limit: 50) {{ items {{ id patientName startsAt endsAt status canFinalize }} offset limit hasMore }} }}";
+        try
+        {
+            using var response = await http.PostAsJsonAsync("graphql", new { query });
+            if (!response.IsSuccessStatusCode)
+                throw await AppointmentApiClient.ReadErrorAsync(response, default);
+            using var document = await response.Content.ReadFromJsonAsync<JsonDocument>() ?? throw new JsonException();
+            if (document.RootElement.TryGetProperty("errors", out _))
+                throw new AppointmentApiException(403, "The appointment query failed. Check your clinic assignment and refresh.");
+            return document.RootElement.GetProperty("data").GetProperty("clinicAppointments").Deserialize<StaffAppointmentsPage>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new JsonException();
+        }
+        catch (HttpRequestException) { throw new AppointmentApiException(0, "The clinic service could not be reached."); }
+        catch (TaskCanceledException) { throw new AppointmentApiException(0, "The clinic service took too long to respond."); }
+        catch (JsonException) { throw new AppointmentApiException(0, "The clinic service returned an unreadable response."); }
+    }
     public Task FinalizeAppointmentAsync(Guid clinicId, Guid appointmentId, bool completed) =>
         WriteAsync($"api/staff-appointments/{clinicId}/{appointmentId}/" + (completed ? "completion" : "no-show"),
             new { ConfirmStatusChange = true });

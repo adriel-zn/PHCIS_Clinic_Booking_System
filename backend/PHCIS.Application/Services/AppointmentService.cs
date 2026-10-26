@@ -20,7 +20,7 @@ public sealed class AppointmentService(
     IValidator<CancelAppointmentRequest> cancellationValidator,
     IValidator<RescheduleAppointmentRequest> reschedulingValidator,
     IMapper mapper,
-    TimeProvider timeProvider) : IAppointmentService
+    TimeProvider timeProvider, IAppointmentEffects? effects = null) : IAppointmentService
 {
     public async Task<AppointmentDto> BookAsync(
         BookAppointmentRequest request,
@@ -43,7 +43,10 @@ public sealed class AppointmentService(
         // This precheck improves feedback; the unique index remains authoritative under races.
         var appointment = new Appointment(patient, slot, timeProvider, request.ReasonForVisit);
         appointments.Add(appointment);
+        effects?.Stage(appointment);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (effects is not null)
+            await effects.CommittedAsync(appointment, cancellationToken);
 
         return mapper.Map<AppointmentDto>(appointment);
     }
@@ -66,6 +69,8 @@ public sealed class AppointmentService(
 
         appointment.Cancel(request.Reason, timeProvider);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (effects is not null)
+            await effects.CommittedAsync(appointment, cancellationToken);
 
         return mapper.Map<AppointmentDto>(appointment);
     }
@@ -87,7 +92,10 @@ public sealed class AppointmentService(
             throw new AppointmentConflictException("The replacement slot is no longer available.");
         }
         appointment.Reschedule(slot, timeProvider);
+        effects?.Stage(appointment);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (effects is not null)
+            await effects.CommittedAsync(appointment, cancellationToken);
         return mapper.Map<AppointmentDto>(appointment);
     }
 }

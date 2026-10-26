@@ -1,0 +1,59 @@
+@inject PortalClient Portal
+<section class="panel admin-section">
+    <h2>Staff clinic assignments</h2>
+    <p>Staff can view and update appointments only at clinics assigned here. No assignment means no appointment access.</p>
+    <ApiError Error="_error" />
+    <div class="field"><label for="assignment-user">Staff account</label>
+        <select id="assignment-user" @onchange="SelectStaffAsync" disabled="@_busy"><option value="">Choose staff</option>
+            @foreach (var person in _staff) { <option value="@person.Id">@person.Email</option> }
+        </select>
+    </div>
+    <button type="button" disabled="@_busy" @onclick="LoadAsync">Refresh staff and clinics</button>
+    @if (_userId is not null)
+    {
+        <div class="field"><label for="assignment-clinic">Clinic</label>
+            <select id="assignment-clinic" @bind="_clinicId" disabled="@_busy"><option value="">Choose clinic</option>
+                @foreach (var clinic in _clinics) { <option value="@clinic.Id">@clinic.Name</option> }
+            </select>
+        </div>
+        <button type="button" class="primary" disabled="@(_busy || _clinicId is null)" @onclick="AssignAsync">Assign clinic</button>
+        @if (_assigned.Count == 0) { <p>No assigned clinics.</p> }
+        @foreach (var clinic in _assigned)
+        {
+            <p>@clinic.Name <button type="button" disabled="@_busy" @onclick="() => RemoveAsync(clinic.Id)">Remove clinic assignment</button></p>
+        }
+    }
+</section>
+@code {
+    private IReadOnlyList<StaffDetails> _staff = [];
+    private IReadOnlyList<ClinicCard> _clinics = [];
+    private IReadOnlyList<ClinicCard> _assigned = [];
+    private string? _userId;
+    private Guid? _clinicId;
+    private bool _busy;
+    private AppointmentApiException? _error;
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private Task LoadAsync() => RunAsync(async () => { _staff = await Portal.StaffAsync(); _clinics = await Portal.ClinicsAsync(); });
+    private Task SelectStaffAsync(ChangeEventArgs e) => RunAsync(async () =>
+    {
+        _userId = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString();
+        _assigned = _userId is null ? [] : await Portal.AssignedStaffClinicsAsync(_userId);
+    });
+    private Task AssignAsync() => RunAsync(async () =>
+    {
+        if (_userId is null || _clinicId is null) return;
+        await Portal.AssignStaffClinicAsync(_userId, _clinicId.Value);
+        _assigned = await Portal.AssignedStaffClinicsAsync(_userId);
+    });
+    private Task RemoveAsync(Guid clinicId) => RunAsync(async () =>
+    {
+        await Portal.RemoveStaffClinicAsync(_userId!, clinicId);
+        _assigned = await Portal.AssignedStaffClinicsAsync(_userId!);
+    });
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await action(); } catch (AppointmentApiException e) { _error = e; } finally { _busy = false; }
+    }
+}

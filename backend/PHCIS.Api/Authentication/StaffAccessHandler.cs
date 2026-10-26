@@ -15,7 +15,7 @@ public sealed class StaffAccessHandler(UserManager<PortalUser> users) : Authoriz
         if (context.User.Identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(id))
             return;
         var user = await users.FindByIdAsync(id);
-        if (user is not null && await users.IsInRoleAsync(user, PortalRoles.Staff))
+        if (user is { IsActive: true, IsDeleted: false } && await users.IsInRoleAsync(user, PortalRoles.Staff))
             context.Succeed(requirement);
     }
 }

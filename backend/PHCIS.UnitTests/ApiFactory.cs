@@ -44,7 +44,9 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
             ["Development:InitializeDatabase"] = "false",
             ["Database:ApplyMigrationsOnStartup"] = "false",
             ["Development:SeedClinicsAndSlots"] = "false",
-            ["Development:SeedAdministrator"] = "false"
+            ["Development:SeedAdministrator"] = "false",
+            ["DatabaseLogging:Enabled"] = "false",
+            ["Email:Enabled"] = "false"
         }));
         builder.ConfigureTestServices(services =>
         {
@@ -87,7 +89,6 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
     public string Token(string? patientClaim = null, bool omitPatientClaim = false,
         bool duplicatePatientClaim = false, bool expired = false, bool wrongSignature = false)
     {
-        if (clinicAdministrator || staffMember)
         {
             using var scope = Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<PhcisDbContext>();
@@ -103,6 +104,7 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
                     SecurityStamp = Guid.NewGuid().ToString(),
                     PatientId = PatientId
                 });
+                context.UserRoles.Add(new IdentityUserRole<string> { UserId = "test-subject", RoleId = context.Roles.Single(x => x.Name == PortalRoles.Patient).Id });
                 if (clinicAdministrator)
                     context.UserRoles.Add(new IdentityUserRole<string>
                     {
@@ -115,6 +117,8 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
                         UserId = "test-subject",
                         RoleId = context.Roles.Single(x => x.Name == PortalRoles.Staff).Id
                     });
+                if (staffMember)
+                    context.StaffClinics.Add(new StaffClinic { UserId = "test-subject", ClinicId = ClinicId });
                 context.SaveChanges();
             }
         }

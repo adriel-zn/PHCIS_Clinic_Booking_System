@@ -73,7 +73,7 @@ public sealed class AccountService(
     public async Task<bool> LoginAsync(LoginBody body)
     {
         var user = await users.FindByEmailAsync(body.Email.Trim());
-        if (user is null)
+        if (user is not { IsActive: true, IsDeleted: false })
         {
             return false;
         }

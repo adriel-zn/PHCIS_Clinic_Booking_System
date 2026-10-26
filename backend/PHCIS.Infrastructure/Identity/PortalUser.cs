@@ -6,5 +6,7 @@ namespace PHCIS.Infrastructure.Identity;
 public sealed class PortalUser : IdentityUser
 {
     public Guid PatientId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsDeleted { get; set; }
 }
 

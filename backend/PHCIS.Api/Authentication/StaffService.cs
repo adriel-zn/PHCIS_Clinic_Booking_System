@@ -15,7 +15,7 @@ public sealed class StaffService(UserManager<PortalUser> users, PhcisDbContext c
 
     /// <summary>Lists Staff members without returning passwords or patient information.</summary>
     public async Task<IReadOnlyList<StaffDetails>> ListAsync(string actorId) =>
-        (await users.GetUsersInRoleAsync(PortalRoles.Staff)).OrderBy(x => x.Email)
+        (await users.GetUsersInRoleAsync(PortalRoles.Staff)).Where(x => x.IsActive && !x.IsDeleted).OrderBy(x => x.Email)
             .Select(x => new StaffDetails(x.Id, x.Email ?? x.UserName ?? "", x.Id == actorId)).ToArray();
 
     /// <summary>Assigns Staff to an existing account without changing other memberships.</summary>
@@ -23,6 +23,8 @@ public sealed class StaffService(UserManager<PortalUser> users, PhcisDbContext c
     {
         var user = await users.FindByEmailAsync(email.Trim())
             ?? throw new ResourceNotFoundException("No registered account has this email. Ask the person to register first.");
+        if (!user.IsActive || user.IsDeleted)
+            throw new DomainRuleException("Activate this account before assigning Staff.");
         if (await users.IsInRoleAsync(user, PortalRoles.Staff))
             return;
         EnsureSuccess(await users.AddToRoleAsync(user, PortalRoles.Staff));

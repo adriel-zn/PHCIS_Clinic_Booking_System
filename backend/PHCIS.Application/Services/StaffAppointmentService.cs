@@ -7,7 +7,7 @@ namespace PHCIS.Application.Services;
 
 /// <summary>Staff lifecycle use cases reuse Domain rules and the existing concurrency-aware unit of work.</summary>
 public sealed class StaffAppointmentService(IStaffAppointmentReader reader, IAppointmentRepository appointments,
-    IUnitOfWork unitOfWork, IValidator<StaffAppointmentsRequest> validator, TimeProvider clock) : IStaffAppointmentService
+    IUnitOfWork unitOfWork, IValidator<StaffAppointmentsRequest> validator, TimeProvider clock, IAppointmentEffects? effects = null) : IStaffAppointmentService
 {
     public async Task<StaffAppointmentsPage> ListAsync(StaffAppointmentsRequest request, CancellationToken cancellationToken)
     {
@@ -31,5 +31,7 @@ public sealed class StaffAppointmentService(IStaffAppointmentReader reader, IApp
         else
             appointment.MarkNoShow(clock);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (effects is not null)
+            await effects.CommittedAsync(appointment, cancellationToken);
     }
 }

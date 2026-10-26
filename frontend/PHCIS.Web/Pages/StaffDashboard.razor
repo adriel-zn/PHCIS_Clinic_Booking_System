@@ -1,5 +1,6 @@
 @page "/staff-dashboard"
 @attribute [Authorize]
+@implements IDisposable
 @inject PortalClient Portal
 
 <PageTitle>Staff dashboard · PHCIS</PageTitle>
@@ -16,6 +17,7 @@ else if (!_allowed)
 }
 else
 {
+    @if (_clinics.Count == 0) { <p>No clinics are assigned to your Staff account. Ask an administrator to add a clinic assignment.</p> }
     @if (_message is not null) { <p role="status">@_message</p> }
     <section class="panel">
         <h2>Clinic appointments</h2>
@@ -124,7 +126,8 @@ else
         try
         {
             _allowed = (await Portal.StaffDashboardAccessAsync()).CanViewAppointments;
-            if (_allowed) _clinics = await Portal.ClinicsAsync();
+            if (_allowed) _clinics = await Portal.StaffClinicsAsync();
+            Portal.AppointmentsChanged += LiveRefreshAsync;
         }
         catch (AppointmentApiException error) { _error = error; }
         finally { _loading = false; }
@@ -178,4 +181,10 @@ else
         catch (AppointmentApiException error) { _error = error; }
         finally { _busy = false; }
     }
+    private async Task LiveRefreshAsync()
+    {
+        if (_busy || !_allowed || _loadedSearch is null) return;
+        await InvokeAsync(async () => { await RunAsync(() => LoadPageAsync(_page?.Offset ?? 0)); StateHasChanged(); });
+    }
+    public void Dispose() => Portal.AppointmentsChanged -= LiveRefreshAsync;
 }

@@ -26,7 +26,7 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
         {
             ValidationException => StatusCodes.Status400BadRequest,
             ResourceNotFoundException => StatusCodes.Status404NotFound,
-            AppointmentConflictException or DomainRuleException => StatusCodes.Status409Conflict,
+            AppointmentConflictException or DomainRuleException or Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status500InternalServerError
         };
 
@@ -51,7 +51,8 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
                     409 => "The requested operation conflicts with the current state.",
                     _ => "An unexpected error occurred."
                 },
-                Detail = status == 500 ? "Contact support with the trace identifier." : exception.Message
+                Detail = status == 500 ? "Contact support with the trace identifier." : exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException
+                    ? "The record changed. Refresh before trying again." : exception.Message
             };
         }
 
@@ -63,6 +64,8 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
         }
 
         details.Status = status;
+        if (status != 500)
+            logger.LogWarning("Rejected operation {ExceptionType}. Trace identifier: {TraceId}", exception.GetType().Name, context.TraceIdentifier);
         context.Response.StatusCode = status;
         await ApiProblemResponse.WriteAsync(context, details);
         return true;

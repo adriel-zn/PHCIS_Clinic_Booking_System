@@ -1,0 +1,13 @@
+@inject PortalClient Portal
+@if (_visible)
+{
+    <NavLink href="/users"><Icon Name="profile" />User management</NavLink>
+}
+@code {
+    private bool _visible;
+    protected override async Task OnInitializedAsync()
+    {
+        try { var access = await Portal.UserManagementAccessAsync(); _visible = access.CanManageUsers || access.CanEditPatients; }
+        catch (AppointmentApiException) { }
+    }
+}

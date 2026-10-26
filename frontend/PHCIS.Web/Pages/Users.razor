@@ -1,0 +1,112 @@
+@page "/users"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject NavigationManager Navigation
+<PageTitle>User management · PHCIS</PageTitle>
+<h1>User management</h1>
+<ApiError Error="_error" />
+@if (_loading) { <p role="status">Loading access…</p> }
+else if (!_canManage && !_canEdit) { <p>Admin or Staff access is required.</p> }
+else
+{
+    <p>@(_canManage ? "Manage accounts. Deleting archives an account and blocks sign-in while preserving appointment history." : "Edit patient profiles connected to your assigned clinics. Account and role administration is restricted to administrators.")</p>
+    @if (_canManage) { <p><a href="/staff">Manage Staff and clinic assignments</a> · <a href="/administrators">Manage administrators</a></p> }
+    @if (_message is not null) { <p role="status">@_message</p> }
+    <div class="field"><label for="user-search">Search by email</label><input id="user-search" @bind="_search" maxlength="100" /></div>
+    <button disabled="@_busy" @onclick="() => LoadPageAsync(0)">Search users</button>
+    @if (_page is not null)
+    {
+        <div class="table-scroll"><table class="admin-slot-table"><thead><tr><th>Email</th><th>Name</th><th>State</th><th>Actions</th></tr></thead><tbody>
+        @foreach (var user in _page.Items)
+        {
+            <tr><td>@user.Email</td><td>@user.FirstName @user.LastName</td><td>@(user.IsDeleted ? "Archived" : user.IsActive ? "Active" : "Inactive")</td><td>
+                <button disabled="@(_busy || user.IsDeleted)" @onclick="() => Edit(user)">Edit profile</button>
+                @if (_canManage && !user.IsDeleted)
+                {
+                    <button disabled="@_busy" @onclick="() => SelectState(user, false)">@(user.IsActive ? "Deactivate" : "Reactivate")</button>
+                    <button disabled="@_busy" @onclick="() => SelectState(user, true)">Delete (archive)</button>
+                }
+            </td></tr>
+        }
+        </tbody></table></div>
+        <button disabled="@(_busy || _page.Offset == 0)" @onclick="() => LoadPageAsync(_page.Offset - 50)">Previous</button>
+        <button disabled="@(_busy || !_page.HasMore)" @onclick="() => LoadPageAsync(_page.Offset + 50)">Next</button>
+    }
+    @if (_selected is not null)
+    {
+        <section class="panel admin-section"><h2>Edit @_selected.Email</h2>
+            <EditForm Model="_profile" OnValidSubmit="SaveProfileAsync" FormName="managed-profile" id="managed-profile-form">
+                <DataAnnotationsValidator /><ValidationSummary /><fieldset disabled="@_busy">
+                <div class="field"><label for="managed-first">First name</label><InputText id="managed-first" @bind-Value="_profile.FirstName" /></div>
+                <div class="field"><label for="managed-last">Last name</label><InputText id="managed-last" @bind-Value="_profile.LastName" /></div>
+                <div class="field"><label for="managed-phone">Phone</label><InputText id="managed-phone" @bind-Value="_profile.PhoneNumber" /></div>
+                <div class="field"><label for="managed-dob">Date of birth</label><InputDate id="managed-dob" @bind-Value="_profile.DateOfBirth" /></div>
+                <button class="primary" type="submit">Save profile</button><button type="button" @onclick="() => _selected = null">Cancel</button>
+                </fieldset>
+            </EditForm>
+        </section>
+    }
+    @if (_stateUser is not null)
+    {
+        <section class="panel admin-section"><h2>Confirm @(_delete ? "account deletion (archive)" : _stateUser.IsActive ? "deactivation" : "reactivation")</h2>
+            <p>@_stateUser.Email. Appointment history is retained. The final active administrator is protected.</p>
+            <button id="confirm-user-state" disabled="@_busy" @onclick="SaveStateAsync">Confirm change</button>
+            <button disabled="@_busy" @onclick="() => _stateUser = null">Keep account unchanged</button>
+        </section>
+    }
+    @if (_canManage)
+    {
+        <section class="panel admin-section"><h2>Add user</h2><p>Creates a Patient account. Assign Staff or Admin separately using their management pages.</p>
+            <EditForm Model="_newUser" OnValidSubmit="CreateAsync" FormName="managed-register" id="managed-register-form">
+                <DataAnnotationsValidator /><ValidationSummary /><fieldset disabled="@_busy">
+                <div class="form-grid">
+                    <div class="field"><label>First name<InputText @bind-Value="_newUser.FirstName" /></label></div>
+                    <div class="field"><label>Last name<InputText @bind-Value="_newUser.LastName" /></label></div>
+                    <div class="field"><label>Email<InputText type="email" @bind-Value="_newUser.Email" /></label></div>
+                    <div class="field"><label>Phone<InputText @bind-Value="_newUser.PhoneNumber" /></label></div>
+                    <div class="field"><label>Date of birth<InputDate @bind-Value="_newUser.DateOfBirth" /></label></div>
+                    <div class="field"><label>Password<InputText type="password" autocomplete="new-password" @bind-Value="_newUser.Password" /></label></div>
+                    <div class="field"><label>Confirm password<InputText type="password" autocomplete="new-password" @bind-Value="_newUser.ConfirmPassword" /></label></div>
+                </div><button type="submit" class="primary">Create account</button>
+                </fieldset>
+            </EditForm>
+        </section>
+    }
+}
+@code {
+    private bool _loading = true, _busy, _canManage, _canEdit, _delete;
+    private string _search = "";
+    private string? _message;
+    private AppointmentApiException? _error;
+    private ManagedUsersPage? _page;
+    private ManagedUser? _selected, _stateUser;
+    private ManagedProfileModel _profile = new();
+    private RegisterModel _newUser = new();
+    protected override async Task OnInitializedAsync()
+    {
+        try { var access = await Portal.UserManagementAccessAsync(); _canManage = access.CanManageUsers; _canEdit = access.CanEditPatients; if (_canManage || _canEdit) await LoadPageAsync(0); }
+        catch (AppointmentApiException e) { _error = e; }
+        finally { _loading = false; }
+    }
+    private Task LoadPageAsync(int offset) => RunAsync(async () => _page = await Portal.UsersAsync(offset, _search));
+    private void Edit(ManagedUser user) { _selected = user; _profile = new() { FirstName = user.FirstName, LastName = user.LastName, PhoneNumber = user.PhoneNumber, DateOfBirth = user.DateOfBirth }; }
+    private void SelectState(ManagedUser user, bool delete) { _stateUser = user; _delete = delete; }
+    private Task SaveProfileAsync() => RunAsync(async () => { await Portal.EditUserAsync(_selected!.Id, _profile); _selected = null; _message = "Profile saved."; _page = await Portal.UsersAsync(_page?.Offset ?? 0, _search); });
+    private Task SaveStateAsync() => RunAsync(async () =>
+    {
+        var self = _stateUser!.IsCurrentUser;
+        await Portal.SetUserStateAsync(_stateUser.Id, !_stateUser.IsActive, _delete);
+        if (self) { Navigation.NavigateTo("/login", forceLoad: true); return; }
+        _stateUser = null; _message = "Account state saved."; _page = await Portal.UsersAsync(_page?.Offset ?? 0, _search);
+    });
+    private Task CreateAsync() => RunAsync(async () =>
+    {
+        try { await Portal.CreateUserAsync(_newUser); _newUser = new(); _message = "Account created."; _page = await Portal.UsersAsync(0, _search); }
+        finally { _newUser.Password = ""; _newUser.ConfirmPassword = ""; }
+    });
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return; _busy = true; _error = null; _message = null;
+        try { await action(); } catch (AppointmentApiException e) { _error = e; } finally { _busy = false; }
+    }
+}

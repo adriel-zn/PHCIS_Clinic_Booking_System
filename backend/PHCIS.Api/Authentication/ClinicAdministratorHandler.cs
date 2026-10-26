@@ -16,7 +16,7 @@ public sealed class ClinicAdministratorHandler(UserManager<PortalUser> users)
         if (context.User.Identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(id))
             return;
         var user = await users.FindByIdAsync(id);
-        if (user is not null && await users.IsInRoleAsync(user, PortalRoles.Admin))
+        if (user is { IsActive: true, IsDeleted: false } && await users.IsInRoleAsync(user, PortalRoles.Admin))
             context.Succeed(requirement);
     }
 }
