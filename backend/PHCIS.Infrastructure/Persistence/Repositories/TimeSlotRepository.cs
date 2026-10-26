@@ -24,7 +24,7 @@ public sealed class TimeSlotRepository(PhcisDbContext context) : ITimeSlotReposi
     {
         return await context.TimeSlots
             .AsNoTracking()
-            .Where(slot => slot.ClinicId == clinicId &&
+            .Where(slot => slot.ClinicId == clinicId && !slot.IsBlocked &&
                 slot.StartsAt >= from && slot.StartsAt < to && slot.StartsAt > now &&
                 !context.Appointments.Any(appointment =>
                     appointment.TimeSlotId == slot.Id &&

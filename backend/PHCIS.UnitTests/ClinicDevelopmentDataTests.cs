@@ -10,6 +10,24 @@ namespace PHCIS.UnitTests;
 public sealed class ClinicDevelopmentDataTests
 {
     [Fact]
+    public async Task RenamingAndManagingSeededClinicDoesNotRecreateOriginalNameOrSchedule()
+    {
+        using var context = new PhcisDbContext(new DbContextOptionsBuilder<PhcisDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var clock = new TestClock(DomainTestData.Now);
+        await ClinicDevelopmentData.SeedAsync(context, clock);
+        var clinic = await context.Clinics.FirstAsync();
+        clinic.UpdateDetails("Renamed sample", "Updated address");
+        clinic.MarkScheduleManaged();
+        var count = await context.TimeSlots.CountAsync(x => x.ClinicId == clinic.Id);
+        await context.SaveChangesAsync();
+        await ClinicDevelopmentData.SeedAsync(context, new TestClock(DomainTestData.Now.AddDays(7)));
+        Assert.Equal(4, await context.Clinics.CountAsync());
+        Assert.Equal("Renamed sample", clinic.Name);
+        Assert.Equal(count, await context.TimeSlots.CountAsync(x => x.ClinicId == clinic.Id));
+    }
+
+    [Fact]
     public async Task RepeatedSeedingPreservesAppointmentsAndAddsNoDuplicateSlots()
     {
         using var context = new PhcisDbContext(new DbContextOptionsBuilder<PhcisDbContext>()

@@ -11,6 +11,48 @@ namespace PHCIS.Api.Controllers;
 [Authorize(Policy = PatientIdentity.Policy)]
 public sealed class ClinicManagementController(IClinicManagementService service, IConfiguration configuration) : ControllerBase
 {
+    /// <summary>Updates clinic contact details without changing appointments.</summary>
+    [HttpPost("{clinicId:guid}/details")]
+    [Authorize(Policy = ClinicAdministration.Policy)]
+    public async Task<IActionResult> Update(Guid clinicId, CreateClinicRequest request, CancellationToken cancellationToken)
+    {
+        await service.UpdateAsync(clinicId, request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Lists clinic slots, including closed slots and booking state, for up to 31 days.</summary>
+    [HttpGet("{clinicId:guid}/slots")]
+    [Authorize(Policy = ClinicAdministration.Policy)]
+    public async Task<ActionResult<IReadOnlyList<ManagedTimeSlot>>> Slots(Guid clinicId,
+        [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to, CancellationToken cancellationToken) =>
+        Ok(await service.SlotsAsync(clinicId, from, to, cancellationToken));
+
+    /// <summary>Adds a future non-overlapping clinic slot.</summary>
+    [HttpPost("{clinicId:guid}/slots")]
+    [Authorize(Policy = ClinicAdministration.Policy)]
+    public async Task<IActionResult> AddSlot(Guid clinicId, SlotScheduleRequest request, CancellationToken cancellationToken)
+    {
+        var id = await service.AddSlotAsync(clinicId, request, cancellationToken);
+        return Created($"/api/clinics/{clinicId}/slots/{id}", new { Id = id });
+    }
+
+    /// <summary>Changes the times of a future slot with no appointment history.</summary>
+    [HttpPost("{clinicId:guid}/slots/{slotId:guid}/schedule")]
+    [Authorize(Policy = ClinicAdministration.Policy)]
+    public async Task<IActionResult> UpdateSlot(Guid clinicId, Guid slotId, SlotScheduleRequest request, CancellationToken cancellationToken)
+    {
+        await service.UpdateSlotAsync(clinicId, slotId, request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Closes or reopens a future unbooked slot without deleting its history.</summary>
+    [HttpPost("{clinicId:guid}/slots/{slotId:guid}/availability")]
+    [Authorize(Policy = ClinicAdministration.Policy)]
+    public async Task<IActionResult> Availability(Guid clinicId, Guid slotId, SlotAvailabilityBody request, CancellationToken cancellationToken)
+    {
+        await service.SetBlockedAsync(clinicId, slotId, request.IsBlocked, cancellationToken);
+        return NoContent();
+    }
     /// <summary>Reports whether the current account may manage clinics.</summary>
     [HttpGet("access")]
     public IActionResult Access() => Ok(new { CanManageClinics = ClinicAdministration.IsAllowed(User, configuration) });
@@ -32,3 +74,6 @@ public sealed class ClinicManagementController(IClinicManagementService service,
         return Created($"/api/clinics/{id}/available-slots", new { Id = id });
     }
 }
+
+/// <summary>Whether a slot should be withdrawn from patient availability.</summary>
+public sealed record SlotAvailabilityBody(bool IsBlocked);

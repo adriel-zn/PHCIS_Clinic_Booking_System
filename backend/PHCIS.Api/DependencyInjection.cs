@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddExceptionHandler<ApiExceptionHandler>();
         services.AddAntiforgery(options => { options.HeaderName = "X-CSRF-TOKEN"; options.Cookie.Name = "__Host-PHCIS-CSRF"; options.Cookie.SecurePolicy = CookieSecurePolicy.Always; options.Cookie.SameSite = SameSiteMode.Strict; });
         services.AddScoped<AccountService>();
+        services.AddScoped<AdministratorService>();
         services.AddScoped<ValidateCsrfFilter>();
         services.AddControllers(options => options.Filters.AddService<ValidateCsrfFilter>())
             .AddJsonOptions(options =>

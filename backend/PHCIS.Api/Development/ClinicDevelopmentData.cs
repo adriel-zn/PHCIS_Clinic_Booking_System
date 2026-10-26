@@ -34,13 +34,17 @@ public static class ClinicDevelopmentData
         var today = DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(2)).DateTime);
         foreach (var demo in demoClinics)
         {
-            var clinic = await context.Clinics.SingleOrDefaultAsync(x => x.Name == demo.Name);
+            var clinic = await context.Clinics.SingleOrDefaultAsync(x => x.DevelopmentSeedKey == demo.Name ||
+                (x.DevelopmentSeedKey == null && x.Name == demo.Name));
             if (clinic is null)
             {
                 clinic = new Clinic(demo.Name, demo.Address, demo.Phone);
                 context.Clinics.Add(clinic);
-                await context.SaveChangesAsync();
             }
+            clinic.AssignDevelopmentSeedKey(demo.Name);
+            await context.SaveChangesAsync();
+            if (clinic.HasManagedSchedule)
+                continue;
             var existing = await context.TimeSlots.Where(x => x.ClinicId == clinic.Id && x.StartsAt > now)
                 .Select(x => x.StartsAt).ToListAsync();
             var starts = existing.ToHashSet();

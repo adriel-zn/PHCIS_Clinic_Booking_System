@@ -22,6 +22,7 @@ public sealed class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
 
         builder.Property(x => x.PhoneNumber)
             .HasMaxLength(30);
+        builder.Property(x => x.DevelopmentSeedKey).HasMaxLength(200);
 
         builder.Property(x => x.RowVersion)
             .HasField("_rowVersion")

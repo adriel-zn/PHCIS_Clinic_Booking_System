@@ -21,6 +21,7 @@ public sealed class Appointment
             throw new DomainRuleException("Appointments must be scheduled before the slot starts.");
         }
 
+        timeSlot.UseForBooking();
         Id = Guid.NewGuid();
         Patient = patient;
         PatientId = patient.Id;
@@ -53,6 +54,7 @@ public sealed class Appointment
         {
             throw new DomainRuleException("Choose a replacement slot at the same clinic.");
         }
+        newSlot.UseForBooking();
         TimeSlot = newSlot;
         TimeSlotId = newSlot.Id;
     }

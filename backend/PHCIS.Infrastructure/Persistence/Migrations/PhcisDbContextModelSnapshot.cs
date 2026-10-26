@@ -218,6 +218,13 @@ namespace PHCIS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("DevelopmentSeedKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("HasManagedSchedule")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -294,11 +301,17 @@ namespace PHCIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<bool>("IsBlocked")
+                        .HasColumnType("bit");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SchedulingVersion")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset>("StartsAt")
                         .HasColumnType("datetimeoffset");

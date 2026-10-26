@@ -10,7 +10,7 @@
     <h1>@_clinic.Name</h1>
     <section class="clinic-details panel">
         <img src="images/clinic-exterior.png" alt="Illustrative image of a community clinic" />
-        <div><h2>@_clinic.Name</h2><p><Icon Name="location" /> @_clinic.Address</p><p><Icon Name="phone" /> @_clinic.PhoneNumber</p><p><Icon Name="clock" /> Mon–Fri: 08:00–17:00</p></div>
+        <div><h2>@_clinic.Name</h2><p><Icon Name="location" /> @_clinic.Address</p><p><Icon Name="phone" /> @_clinic.PhoneNumber</p><p><Icon Name="clock" /> Check available dates and times</p></div>
     </section>
     @if (Reschedule is not null) { <div class="notice info">Choose a new time for your appointment at this clinic.</div> }
     <AvailabilityPanel @key="ClinicId" ClinicId="ClinicId" ReviewInSeparatePage="true" OnSelected="Continue" />

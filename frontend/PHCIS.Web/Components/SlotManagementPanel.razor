@@ -1,0 +1,119 @@
+@inject PortalClient Portal
+
+<section class="admin-section">
+    <h3>Clinic time slots</h3>
+    <p>All times are South African time (UTC+02:00). Close slots to withdraw availability; reopen them to accept bookings again.</p>
+    <p>Once you change a clinic's schedule here, its automatic sample-slot refresh stops. Add future slots here as needed.</p>
+    <ApiError Error="_error" />
+    @if (_message is not null) { <p role="status">@_message</p> }
+    <div class="field">
+        <label for="slot-list-date">View date</label>
+        <InputDate id="slot-list-date" @bind-Value="_date" disabled="@_busy" />
+    </div>
+    <button class="secondary" type="button" disabled="@_busy" @onclick="LoadAsync">Load slots</button>
+    @if (_slots is not null)
+    {
+        <div class="table-scroll">
+            <table class="admin-slot-table">
+                <caption>Slots for @_loadedDate?.ToString("dd MMM yyyy")</caption>
+                <thead><tr><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                    @foreach (var slot in _slots)
+                    {
+                        var past = slot.StartsAt <= DateTimeOffset.UtcNow;
+                        <tr>
+                            <td>@Local(slot.StartsAt).ToString("HH:mm")–@Local(slot.EndsAt).ToString("HH:mm")</td>
+                            <td>@(past ? "Past" : slot.IsBooked ? "Booked" : slot.IsBlocked ? "Closed" : "Open")</td>
+                            <td>
+                                <button type="button" disabled="@(_busy || past || slot.HasAppointments)" @onclick="() => Edit(slot)">Edit time</button>
+                                <button type="button" disabled="@(_busy || past || slot.IsBooked)" @onclick="() => ToggleAsync(slot)">@(slot.IsBlocked ? "Reopen" : "Close slot")</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (_slots.Count == 0) { <p>No slots for this date. Add a slot below.</p> }
+    }
+    <h3>@(_editingId is null ? "Add a time slot" : "Edit time slot")</h3>
+    <p>Only future slots with no appointment history can change time. Slots must not overlap.</p>
+    <EditForm id="slot-schedule-form" Model="_schedule" OnValidSubmit="SaveAsync" FormName="slot-schedule">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <fieldset disabled="@_busy">
+            <div class="form-grid">
+                <div class="field">
+                    <label for="slot-start">Start *</label>
+                    <InputDate id="slot-start" Type="InputDateType.DateTimeLocal" @bind-Value="_schedule.StartsAt" />
+                </div>
+                <div class="field">
+                    <label for="slot-end">End *</label>
+                    <InputDate id="slot-end" Type="InputDateType.DateTimeLocal" @bind-Value="_schedule.EndsAt" />
+                </div>
+            </div>
+            <button type="submit" class="primary">@(_busy ? "Saving…" : _editingId is null ? "Add slot" : "Save time slot")</button>
+            @if (_editingId is not null)
+            {
+                <button type="button" @onclick="Reset">Cancel editing</button>
+            }
+        </fieldset>
+    </EditForm>
+</section>
+
+@code {
+    [Parameter] public Guid ClinicId { get; set; }
+    private DateOnly _date = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(2)).DateTime);
+    private SlotScheduleModel _schedule = new();
+    private Guid? _editingId;
+    private IReadOnlyList<ManagedTimeSlot>? _slots;
+    private DateOnly? _loadedDate;
+    private AppointmentApiException? _error;
+    private string? _message;
+    private bool _busy;
+
+    private static DateTime Local(DateTimeOffset value) => value.ToOffset(TimeSpan.FromHours(2)).DateTime;
+    private void Reset() { _editingId = null; _schedule = new(); }
+    private void Edit(ManagedTimeSlot slot)
+    {
+        _editingId = slot.Id;
+        _schedule = new() { StartsAt = Local(slot.StartsAt), EndsAt = Local(slot.EndsAt) };
+        _message = null;
+        _error = null;
+    }
+
+    private async Task LoadAsync() => await RunAsync(async () =>
+    {
+        _slots = null;
+        _slots = await Portal.ManagedSlotsAsync(ClinicId, _date);
+        _loadedDate = _date;
+    });
+
+    private async Task SaveAsync() => await RunAsync(async () =>
+    {
+        await Portal.SaveSlotAsync(ClinicId, _editingId, _schedule);
+        _date = DateOnly.FromDateTime(_schedule.StartsAt!.Value);
+        Reset();
+        _message = "Time slot saved.";
+        _slots = await Portal.ManagedSlotsAsync(ClinicId, _date);
+        _loadedDate = _date;
+    });
+
+    private async Task ToggleAsync(ManagedTimeSlot slot) => await RunAsync(async () =>
+    {
+        await Portal.SetSlotBlockedAsync(ClinicId, slot.Id, !slot.IsBlocked);
+        _message = slot.IsBlocked ? "Slot reopened." : "Slot closed.";
+        _slots = await Portal.ManagedSlotsAsync(ClinicId, _date);
+        _loadedDate = _date;
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        _message = null;
+        try { await action(); }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}

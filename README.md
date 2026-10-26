@@ -8,6 +8,7 @@
 > Development startup seeds four fictional clinics and future weekday time slots in your configured SQL Server. Set `Development:SeedClinicsAndSlots=false` to disable it; no demo login is created by this setting.
 > Authorized administrators can add more clinics through **Clinics > Manage clinics**. Configure their Identity account IDs as described in the [clinic management guide](documentation/LOCAL_DEVELOPMENT.md#add-clinics-through-the-app).
 > Development can seed `admin@phcis.local` with clinic-administration access automatically, without copying account IDs. Configure `Development:AdministratorPassword` in API user secrets and start with F5; see the current run guide.
+> **Manage clinics** also supports editing clinic details, adding/editing/closing/reopening future slots, and granting administrator access to another registered account. Booked slots and appointment history are protected.
 > Earlier OIDC setup notes below are retained as historical reference and are not the current run instructions.
 
 ## Scenario Overview

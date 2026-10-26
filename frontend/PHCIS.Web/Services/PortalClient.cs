@@ -10,13 +10,34 @@ public sealed class PortalClient(HttpClient http)
     public Task<ClinicManagementAccess> ClinicManagementAccessAsync() =>
         ReadAsync<ClinicManagementAccess>("api/clinic-management/access");
 
-    public async Task CreateClinicAsync(CreateClinicModel model)
+    public Task CreateClinicAsync(CreateClinicModel model) => WriteAsync("api/clinic-management", model);
+    public Task UpdateClinicAsync(Guid id, CreateClinicModel model) => WriteAsync($"api/clinic-management/{id}/details", model);
+    public Task GrantAdministratorAsync(GrantAdministratorModel model) => WriteAsync("api/administrators", model);
+    public async Task<IReadOnlyList<ManagedTimeSlot>> ManagedSlotsAsync(Guid id, DateOnly date)
+    {
+        var from = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(2));
+        var to = from.AddDays(1);
+        return await ReadAsync<List<ManagedTimeSlot>>($"api/clinic-management/{id}/slots?from={Uri.EscapeDataString(from.ToString("O"))}&to={Uri.EscapeDataString(to.ToString("O"))}");
+    }
+    public Task SaveSlotAsync(Guid clinicId, Guid? slotId, SlotScheduleModel model)
+    {
+        if (model.StartsAt is null || model.EndsAt is null || model.EndsAt <= model.StartsAt)
+            throw new AppointmentApiException(400, "Enter a start and end time, with the end after the start.");
+        var start = new DateTimeOffset(DateTime.SpecifyKind(model.StartsAt.Value, DateTimeKind.Unspecified), TimeSpan.FromHours(2));
+        var end = new DateTimeOffset(DateTime.SpecifyKind(model.EndsAt.Value, DateTimeKind.Unspecified), TimeSpan.FromHours(2));
+        var path = $"api/clinic-management/{clinicId}/slots" + (slotId is null ? "" : $"/{slotId}/schedule");
+        return WriteAsync(path, new { StartsAt = start, EndsAt = end });
+    }
+    public Task SetSlotBlockedAsync(Guid clinicId, Guid slotId, bool blocked) =>
+        WriteAsync($"api/clinic-management/{clinicId}/slots/{slotId}/availability", new { IsBlocked = blocked });
+
+    private async Task WriteAsync(string path, object model)
     {
         try
         {
-            using var response = await http.PostAsJsonAsync("api/clinic-management", model);
+            using var response = await http.PostAsJsonAsync(path, model);
             if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                throw new AppointmentApiException(403, "Clinic administrator access is required to add a clinic.");
+                throw new AppointmentApiException(403, "Clinic administrator access is required for this action.");
             if (!response.IsSuccessStatusCode)
                 throw await AppointmentApiClient.ReadErrorAsync(response, default);
         }

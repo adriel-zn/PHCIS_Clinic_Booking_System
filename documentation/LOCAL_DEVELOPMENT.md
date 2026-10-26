@@ -85,9 +85,34 @@ The same section is available in API `appsettings.json`; use Development setting
 5. Enter a unique clinic name, address and optional phone number, then select **Add clinic**. The API saves the clinic and its initial future slots in one transaction. Slots cover the next 15 calendar days, Monday–Friday, 08:00–17:00 South African time, in 30-minute intervals.
 6. Select **View clinics** to book against the new availability.
 
-Clinic details are validated in the browser and API. Duplicate clinic names are rejected. The API checks administrator access and CSRF protection for every creation request. This page adds clinics; editing/deleting clinics or managing custom opening schedules is not included. Initial availability for manually added clinics is created once at creation.
+Clinic details are validated in the browser and API. Duplicate clinic names are rejected. The API checks administrator access and CSRF protection for every write. Initial availability for manually added clinics is created once at creation.
+
+#### Edit Clinic Details and Time Slots
+
+In **Manage clinics > Edit clinics and manage slots**, select a clinic. Change its name, address or phone number and select **Save clinic details**. The clinic ID and appointments are preserved. Select **Refresh clinic list** after adding a clinic to make it available for editing.
+
+Under **Clinic time slots**, choose a date and select **Load slots**. The table includes open, closed, booked and past slots. Enter start/end values in South African time (UTC+02:00) to add a slot; choose **Edit time** to move an existing future slot. Slots must end after they start, last no more than eight hours, and not overlap another slot for that clinic. Dates and times are sent with an explicit offset.
+
+Use **Close slot** to hide future unbooked availability and **Reopen** to offer it again. Closed slots cannot be booked or used as rescheduling targets. Booked slots cannot be closed, and any slot with appointment history cannot change its time, including slots with cancelled appointments. Past slots are read-only. Slots are retained rather than deleted so appointment history remains intact. To change a booked visit, use the appointment workflow first.
+
+The first manual schedule change disables automatic sample-slot refresh for that clinic, so startup cannot recreate closed or moved slots. Add its future availability through this page thereafter. Sample clinics also retain a seed identifier so renaming one does not create a second sample clinic at startup. A new EF migration adds these settings plus slot booking-concurrency fields; API startup applies it automatically.
+
+#### Add Another Administrator
+
+Ask the person to register their own account. In **Manage clinics > Add another administrator**, enter their registered email, check the explicit administrator-access confirmation, and select **Grant administrator access**. This grants permission to manage clinics, slots and other administrators; it does not change their password. They must sign out and back in to receive the permission in their session. Unknown emails are rejected, and repeating a grant does not add another permission claim. Normal patients cannot call this endpoint. Grants are logged using the acting and target account IDs without passwords or other account details.
 
 Endpoints: `GET /api/clinic-management/access` reports current-account access; `POST /api/clinic-management` creates a clinic and initial slots and returns its ID. Anonymous requests are rejected and non-administrator writes return 403.
+
+Additional administrator endpoints:
+
+| Method and path | Purpose |
+| --- | --- |
+| POST /api/clinic-management/{clinicId}/details | Update clinic contact details |
+| GET /api/clinic-management/{clinicId}/slots?from=...&to=... | Inspect slots for an interval of up to 31 days, up to 1,000 results |
+| POST /api/clinic-management/{clinicId}/slots | Add a future slot |
+| POST /api/clinic-management/{clinicId}/slots/{slotId}/schedule | Edit a future slot with no appointment history |
+| POST /api/clinic-management/{clinicId}/slots/{slotId}/availability | Close or reopen a future unbooked slot |
+| POST /api/administrators | Grant access to a registered email, with explicit confirmation |
 
 ### Optional LocalDB Demo
 

@@ -18,7 +18,7 @@ else if (_clinics is not null)
             <article class="clinic-card">
                 <img src="images/clinic-exterior.png" alt="Illustrative image of a community clinic" />
                 <h2>@clinic.Name</h2>
-                <p><Icon Name="location" /> @clinic.Address</p><p><Icon Name="phone" /> @clinic.PhoneNumber</p><p><Icon Name="clock" /> Mon–Fri: 08:00–17:00</p>
+                <p><Icon Name="location" /> @clinic.Address</p><p><Icon Name="phone" /> @clinic.PhoneNumber</p><p><Icon Name="clock" /> Check available dates and times</p>
                 <a class="button primary full" href="@($"/clinics/{clinic.Id}")">View Available Slots</a>
             </article>
         }

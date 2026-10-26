@@ -712,6 +712,22 @@ td{
     text-align:center;
     color:var(--muted)
 }
+.admin-section{
+    margin-top:24px
+}
+.admin-slot-table{
+    width:100%;
+    border-collapse:collapse;
+    margin:18px 0
+}
+.admin-slot-table th,.admin-slot-table td{
+    padding:12px;
+    text-align:left;
+    border-bottom:1px solid #e2e8f3
+}
+.admin-slot-table button{
+    margin:3px
+}
 .public-root{
     min-height:100vh
 }

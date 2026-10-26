@@ -23,7 +23,7 @@ else
     <section class="panel">
         <h2>Add a clinic</h2>
         <p>Creates future 30-minute appointments, Monday–Friday, 08:00–17:00 South African time, for the next 15 calendar days.</p>
-        <EditForm Model="_model" OnValidSubmit="CreateAsync" FormName="create-clinic">
+        <EditForm id="create-clinic-form" Model="_model" OnValidSubmit="CreateAsync" FormName="create-clinic">
             <DataAnnotationsValidator />
             <ValidationSummary />
             <fieldset disabled="@_saving">
@@ -43,6 +43,8 @@ else
             </fieldset>
         </EditForm>
     </section>
+    <ClinicAdministrationPanel />
+    <AdministratorGrantPanel />
 }
 
 @code {

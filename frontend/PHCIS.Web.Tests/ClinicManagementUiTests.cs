@@ -36,7 +36,7 @@ public sealed class ClinicManagementUiTests : BunitContext
         Configure(false);
         var page = Render<ManageClinics>();
         page.WaitForAssertion(() => Assert.Contains("administrator access is required", page.Markup));
-        Assert.Empty(page.FindAll("form"));
+        Assert.Empty(page.FindAll("#create-clinic-form"));
     }
 
     [Fact]
@@ -44,12 +44,12 @@ public sealed class ClinicManagementUiTests : BunitContext
     {
         Configure(true);
         var page = Render<ManageClinics>();
-        page.WaitForAssertion(() => Assert.Single(page.FindAll("form")));
-        page.Find("form").Submit();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll("#create-clinic-form")));
+        page.Find("#create-clinic-form").Submit();
         Assert.Equal(0, _creates);
         page.Find("#clinic-name").Change("New clinic");
         page.Find("#clinic-address").Change("10 Main Street");
-        page.Find("form").Submit();
+        page.Find("#create-clinic-form").Submit();
         page.WaitForAssertion(() => Assert.Contains("was added with initial availability", page.Markup));
         Assert.Equal(1, _creates);
         Assert.Equal("", page.Find("#clinic-name").GetAttribute("value"));
@@ -60,10 +60,10 @@ public sealed class ClinicManagementUiTests : BunitContext
     {
         Configure(true, HttpStatusCode.Conflict);
         var page = Render<ManageClinics>();
-        page.WaitForAssertion(() => Assert.Single(page.FindAll("form")));
+        page.WaitForAssertion(() => Assert.Single(page.FindAll("#create-clinic-form")));
         page.Find("#clinic-name").Change("New clinic");
         page.Find("#clinic-address").Change("10 Main Street");
-        page.Find("form").Submit();
+        page.Find("#create-clinic-form").Submit();
         page.WaitForAssertion(() => Assert.Equal(1, _creates));
         Assert.Equal("New clinic", page.Find("#clinic-name").GetAttribute("value"));
         Assert.DoesNotContain("was added with initial availability", page.Markup);

@@ -1,0 +1,87 @@
+@inject PortalClient Portal
+
+<section class="panel admin-section">
+    <h2>Edit clinics and manage slots</h2>
+    <ApiError Error="_error" />
+    <div class="field">
+        <label for="managed-clinic">Choose a clinic</label>
+        <select id="managed-clinic" value="@_clinicId" @onchange="SelectClinic" disabled="@_busy">
+            <option value="">Select a clinic</option>
+            @foreach (var clinic in _clinics)
+            {
+                <option value="@clinic.Id">@clinic.Name</option>
+            }
+        </select>
+    </div>
+    <button type="button" class="secondary" disabled="@_busy" @onclick="LoadAsync">Refresh clinic list</button>
+    @if (_clinicId is not null)
+    {
+        @if (_saved) { <p role="status">Clinic details saved.</p> }
+        <EditForm id="edit-clinic-form" Model="_details" OnValidSubmit="SaveAsync" FormName="edit-clinic">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="field">
+                    <label for="edit-clinic-name">Clinic name *</label>
+                    <InputText id="edit-clinic-name" @bind-Value="_details.Name" maxlength="200" />
+                </div>
+                <div class="field">
+                    <label for="edit-clinic-address">Address *</label>
+                    <InputTextArea id="edit-clinic-address" @bind-Value="_details.Address" maxlength="500" />
+                </div>
+                <div class="field">
+                    <label for="edit-clinic-phone">Phone number</label>
+                    <InputText id="edit-clinic-phone" @bind-Value="_details.PhoneNumber" maxlength="30" />
+                </div>
+                <button type="submit" class="primary">@(_busy ? "Saving…" : "Save clinic details")</button>
+            </fieldset>
+        </EditForm>
+        <SlotManagementPanel ClinicId="_clinicId.Value" @key="_clinicId.Value" />
+    }
+</section>
+
+@code {
+    private IReadOnlyList<ClinicCard> _clinics = [];
+    private Guid? _clinicId;
+    private CreateClinicModel _details = new();
+    private bool _busy;
+    private bool _saved;
+    private AppointmentApiException? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        try { _clinics = await Portal.ClinicsAsync(); }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+
+    private void SelectClinic(ChangeEventArgs args)
+    {
+        _clinicId = Guid.TryParse(args.Value?.ToString(), out var id) ? id : null;
+        _saved = false;
+        _error = null;
+        var clinic = _clinics.FirstOrDefault(x => x.Id == _clinicId);
+        _details = clinic is null ? new() : new() { Name = clinic.Name, Address = clinic.Address, PhoneNumber = clinic.PhoneNumber };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_busy || _clinicId is null) return;
+        _busy = true;
+        _saved = false;
+        _error = null;
+        try
+        {
+            await Portal.UpdateClinicAsync(_clinicId.Value, _details);
+            _clinics = await Portal.ClinicsAsync();
+            _saved = true;
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}

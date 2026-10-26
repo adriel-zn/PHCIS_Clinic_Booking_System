@@ -48,7 +48,7 @@ public sealed class ApiExceptionHandler(ILogger<ApiExceptionHandler> logger) : I
                 Title = status switch
                 {
                     404 => "Resource not found.",
-                    409 => "Appointment operation conflicts with the current state.",
+                    409 => "The requested operation conflicts with the current state.",
                     _ => "An unexpected error occurred."
                 },
                 Detail = status == 500 ? "Contact support with the trace identifier." : exception.Message

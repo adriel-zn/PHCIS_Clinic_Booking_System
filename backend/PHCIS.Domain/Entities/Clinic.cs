@@ -19,6 +19,15 @@ public sealed class Clinic
     public string Name { get; private set; } = string.Empty;
     public string Address { get; private set; } = string.Empty;
     public string? PhoneNumber { get; private set; }
+    public bool HasManagedSchedule { get; private set; }
+    public string? DevelopmentSeedKey { get; private set; }
+
+    /// <summary>Stops automatic sample slot generation once an administrator manages the schedule.</summary>
+    public void MarkScheduleManaged() => HasManagedSchedule = true;
+
+    /// <summary>Retains sample clinic identity even when an administrator renames it.</summary>
+    public void AssignDevelopmentSeedKey(string key) =>
+        DevelopmentSeedKey = DomainGuard.RequiredText(key, 200, "Development seed key");
     public byte[] RowVersion => (byte[])_rowVersion.Clone();
     public IReadOnlyCollection<TimeSlot> TimeSlots => _timeSlots.AsReadOnly();
 
