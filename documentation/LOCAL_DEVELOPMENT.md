@@ -6,15 +6,9 @@ The portal now uses simple email/password login with ASP.NET Core Identity and E
 
 ### Use Your Own SQL Server
 
-After configuring your database connection, start both apps with one command from the repository root:
+Configure your SQL Server connection below, then follow **Run from Visual Studio**. No PowerShell scripts are required.
 
-~~~powershell
-.\scripts\Start-LocalDevelopment.ps1
-~~~
-
-The script reuses hosts already responding at the development URLs, starts missing hosts in the background, waits for readiness, and prints log paths and stop commands for hosts it starts. Logs are stored under `%TEMP%\PHCIS-development`. API startup applies migrations using your configured connection. Open https://localhost:7100/login once both hosts are ready.
-
-Registration and login use ASP.NET Core Identity through EF Core in the same SQL Server database as patients and appointments. Set the connection string and start the API: it applies pending migrations before accepting requests. You do not need LocalDB or the demo setup script for this workflow.
+Registration and login use ASP.NET Core Identity through EF Core in the same SQL Server database as patients and appointments. Set the connection string and start the API: it applies pending migrations before accepting requests. You do not need LocalDB for this workflow.
 
 In `backend/PHCIS.Api/appsettings.Development.json`, replace the existing `ConnectionStrings:Phcis` value with your SQL Server connection. For Windows authentication:
 
@@ -32,42 +26,62 @@ Keep the other JSON sections. The base `backend/PHCIS.Api/appsettings.json` also
 }
 ~~~
 
-Development settings override the base file, so edit the Development connection when using the `https` launch profile. From the repository root:
-
-~~~powershell
-dotnet restore
-dotnet run --project backend/PHCIS.Api --launch-profile https
-# In another terminal:
-dotnet run --project frontend/PHCIS.Web --launch-profile https
-~~~
+Development settings override the base file, so edit the Development connection when using the https launch profile. Start both projects from Visual Studio as described below.
 
 Alternatively, set `ConnectionStrings:Phcis` in API user secrets or the `ConnectionStrings__Phcis` environment variable. These override the JSON setting; remove an old override if edits to JSON appear ineffective. For SQL authentication, use `User ID=YOUR_LOGIN;Password=YOUR_PASSWORD` instead of `Integrated Security=True`, and keep credentials in local user secrets rather than committing them. `TrustServerCertificate=True` is for a local development server with an untrusted certificate; use a trusted SQL Server certificate and `TrustServerCertificate=False` elsewhere.
 
-The SQL Server instance must already be installed and reachable. The connection identity needs permission to create the database (if missing) and apply schema changes. Startup applies only migrations missing from EF's migration history and stops if migration fails, rather than serving requests against an outdated schema. Demo seeding remains separate and disabled by default (`Development:InitializeDatabase=false`). To manage migrations manually, set `Database:ApplyMigrationsOnStartup=false`, then run:
+The SQL Server instance must already be installed and reachable. The connection identity needs permission to create the database (if missing) and apply schema changes. Startup applies only migrations missing from EF's migration history and stops if migration fails, rather than serving requests against an outdated schema. Demo account seeding remains separate and disabled by default (`Development:InitializeDatabase=false`); clinic/slot seeding is enabled in Development through `Development:SeedClinicsAndSlots`. To manage migrations manually, set `Database:ApplyMigrationsOnStartup=false`, then run:
 
 ~~~powershell
 dotnet tool restore
 dotnet ef database update --project backend/PHCIS.Infrastructure --startup-project backend/PHCIS.Api -- --environment Development
 ~~~
 
-Open [Register](https://localhost:7100/register) to create an account, then sign in. Registration uses the same background and card design as login. Identity stores password hashes in `AspNetUsers` and links each account to its `Patients` record. A new database has no demo account, clinics or slots: migrations create the schema only. Booking requires clinic and future slot records; the optional demo initializer below remains restricted to the dedicated LocalDB demo database.
+Open [Register](https://localhost:7100/register) to create an account, then sign in. Registration uses the same background and card design as login. Identity stores password hashes in `AspNetUsers` and links each account to its `Patients` record. Migrations create the schema; the enabled Development clinic/slot seed then supplies sample availability. It creates no demo account. The optional demo account initializer below remains restricted to the dedicated LocalDB demo database.
 
-### Quick Start (Optional LocalDB Demo)
+### Run from Visual Studio
 
-Requirements: Windows, the .NET 10 SDK, and SQL Server Express LocalDB with an MSSQLLocalDB instance. LocalDB and a trusted localhost HTTPS development certificate were verified on this machine.
+Development startup also seeds four fictional clinics (Central Community Clinic, Westville Clinic, Phoenix Clinic and Umlazi Clinic) and future 30-minute slots, Monday–Friday, 08:00–17:00 South African time, across a rolling 15-calendar-day window. This uses your configured SQL Server, including SQL Express, and runs after migrations. Existing clinics, slots and appointments are preserved; repeated startups add missing records only. No patient account is created by this seed option; use Register.
 
-From the repository root:
+The option in `appsettings.Development.json` is `Development:SeedClinicsAndSlots=true`. Set it to false to stop refreshing sample availability. It never runs outside Development. The separate `Development:InitializeDatabase` option remains false and is only for the optional LocalDB demo account below.
 
-~~~powershell
-# First-time setup, or refresh the rolling development slots:
-.\scripts\Initialize-LocalDevelopment.ps1
+1. Open `PHCIS_Clinic_Booking_System.slnx`.
+2. Select **API and Blazor** in the startup toolbar, then press **F5**. The shared `.slnLaunch` profile starts both projects using HTTPS.
+3. If the profile is not visible, right-click the solution, choose **Configure Startup Projects**, select **Multiple startup projects**, and set **PHCIS.Api** and **PHCIS.Web** to **Start**, with the API first. Set every other project to **None** and choose **https** for both debug targets.
+4. The frontend opens https://localhost:7100/login. The API runs at https://localhost:7014 and applies pending migrations before accepting requests.
+5. Use **Shift+F5** (Stop Debugging) before rebuilding or starting again. Do not launch a second copy from another Visual Studio instance or a terminal.
 
-# Terminal 1:
-dotnet run --project backend/PHCIS.Api --launch-profile https
+Multi-project launch profiles require Visual Studio 2022 17.11 or later; if needed, enable **Multi-Project Launch Profiles** under **Tools > Options > Preview Features**. See [Microsoft's setup guide](https://learn.microsoft.com/en-us/visualstudio/ide/how-to-set-multiple-startup-projects?view=visualstudio).
 
-# Terminal 2:
-dotnet run --project frontend/PHCIS.Web --launch-profile https
+If an old background copy still holds an executable or port, stop that PHCIS process in Task Manager before pressing F5. No launcher scripts are included.
+
+### Add Clinics Through the App
+
+Clinic management is available at `/manage-clinics`. Only explicitly authorized accounts can create clinics; normal registered patients cannot grant themselves access.
+
+1. Register your own account and sign in.
+2. In Visual Studio **SQL Server Object Explorer** (or SSMS), connect to your configured database. Find your account in `dbo.AspNetUsers` by `Email` and copy its `Id` (the Identity account ID, not `PatientId`).
+3. In **PHCIS.Api > Manage User Secrets**, add the following section alongside your existing settings, replacing the example with that ID:
+
+~~~json
+"ClinicManagement": {
+  "AdministratorAccountIds": ["YOUR-ASPNETUSERS-ID"]
+}
 ~~~
+
+The same section is available in API `appsettings.json`; use Development settings or user secrets for your local account. The allowlist is empty by default. Account IDs are server assigned and cannot be chosen during registration. Add more IDs to authorize additional administrators.
+
+4. Stop debugging, restart **API and Blazor** with F5, and open **Clinics > Manage clinics**.
+5. Enter a unique clinic name, address and optional phone number, then select **Add clinic**. The API saves the clinic and its initial future slots in one transaction. Slots cover the next 15 calendar days, Monday–Friday, 08:00–17:00 South African time, in 30-minute intervals.
+6. Select **View clinics** to book against the new availability.
+
+Clinic details are validated in the browser and API. Duplicate clinic names are rejected. The API checks administrator access and CSRF protection for every creation request. This page adds clinics; editing/deleting clinics or managing custom opening schedules is not included. Initial availability for manually added clinics is created once at creation.
+
+Endpoints: `GET /api/clinic-management/access` reports current-account access; `POST /api/clinic-management` creates a clinic and initial slots and returns its ID. Anonymous requests are rejected and non-administrator writes return 403.
+
+### Optional LocalDB Demo
+
+The demo initializer remains available only for SQL Server LocalDB / PHCIS.Development. The demo account below exists only after initialization; a new database otherwise requires registration.
 
 Open [the patient portal](https://localhost:7100). The API runs at https://localhost:7014 and Development Swagger is at https://localhost:7014/swagger/index.html.
 
@@ -99,21 +113,11 @@ TrustServerCertificate is confined to this local Development connection. Product
 
 To inspect the database in SQL Server Management Studio, connect to (localdb)\MSSQLLocalDB with Windows Authentication and open PHCIS.Development. Identity credentials are stored in AspNetUsers as password hashes; patient and booking records remain in their own tables.
 
-The setup script:
-1. Starts MSSQLLocalDB.
-2. Saves Development:SeedPassword in API user secrets.
-3. Restores tools/packages and builds the solution.
-4. Runs the API's initialization-only mode, which applies migrations and seeds data, then exits.
-
-The setup script explicitly enables Development:InitializeDatabase for its initialization-only run. This setting defaults to false, so ordinary API startup applies migrations without inserting demo data. If explicitly enabled, the demo initializer refuses anything except the PHCIS.Development database on (localdb)\MSSQLLocalDB, and never runs outside Development.
+To enable optional demo seeding from Visual Studio, set Development:InitializeDatabase to true in appsettings.Development.json and add Development:SeedPassword through **PHCIS.Api > Manage User Secrets**. Start with F5, then restore InitializeDatabase to false after initialization. The initializer refuses any target except PHCIS.Development on (localdb)\MSSQLLocalDB and never runs outside Development.
 
 Seed data contains one fictional patient account, four clinics matching the reference design's examples, and 30-minute weekday slots from 08:00 to 17:00, covering a rolling 15-day window. Past slots are not newly seeded. If today's opening hours have ended, choose the next weekday to test availability. Existing accounts, appointments, passwords, and clinic records are not reset or deleted.
 
-The default password is stored in the API's user-secret store, not appsettings. To choose a different password before the account is first created:
-
-~~~powershell
-.\scripts\Initialize-LocalDevelopment.ps1 -DemoPassword 'YourOwnDevelopment!Password1'
-~~~
+The seed password comes from Development:SeedPassword in API user secrets and is used only when the demo account is first created.
 
 Changing that setting does not reset an existing account's password. Forgotten-password email delivery is not implemented; the UI directs users to contact their clinic. No email or SMS confirmation is claimed or sent.
 
@@ -132,13 +136,7 @@ Changing that setting does not reset an existing account's password. Forgotten-p
 
 The dashboard counts actual persisted appointments. There is no fabricated Pending state. Upcoming means a Scheduled appointment whose slot has not started.
 
-A repeatable API/SQL smoke test is also provided. Start the API first:
-
-~~~powershell
-.\scripts\Test-LocalBooking.ps1
-~~~
-
-It checks local login, availability, booking, duplicate rejection, cancellation, and rebooking the same slot. It cancels its own test appointments afterwards and retains cancellation history. It only accepts a loopback HTTPS API URL. The browser walkthrough was also verified against the actual LocalDB database.
+Use the walkthrough above to check booking and cancellation against your configured SQL Server from the Visual Studio session.
 
 ## Folder Structure
 
@@ -179,9 +177,6 @@ PHCIS/
 │   │   ├── Services/
 │   │   └── wwwroot/
 │   └── PHCIS.Web.Tests/
-├── scripts/
-│   ├── Initialize-LocalDevelopment.ps1
-│   └── Test-LocalBooking.ps1
 └── documentation/
 ~~~
 
@@ -381,7 +376,7 @@ dotnet ef migrations script --idempotent --project backend/PHCIS.Infrastructure 
 dotnet publish frontend/PHCIS.Web -c Release
 ~~~
 
-Tests cover Domain invariants, appointment services, EF mappings/migration SQL, real Identity registration/password hashing/login/logout, lockout, CSRF, authorization and patient isolation, profile updates, rescheduling, HTTP errors, CORS, Swagger, Blazor components/forms, and HTTP-cookie behavior. In-memory EF tests do not prove SQL Server constraints; the supplied local smoke test additionally exercises the actual SQL Server database.
+Tests cover Domain invariants, appointment services, EF mappings/migration SQL, real Identity registration/password hashing/login/logout, lockout, CSRF, authorization and patient isolation, profile updates, rescheduling, HTTP errors, CORS, Swagger, Blazor components/forms, and HTTP-cookie behavior. In-memory EF tests do not prove SQL Server constraints; the browser walkthrough additionally exercises the actual SQL Server database.
 
 The root .editorconfig defines four-space C# indentation and separate-line braces. Apply the formatter with:
 

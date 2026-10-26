@@ -84,11 +84,19 @@ public static class DependencyInjection
             options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
             options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
         });
-        services.AddAuthorization(options => options.AddPolicy(PatientIdentity.Policy, policy =>
+        services.AddAuthorization(options =>
         {
-            policy.RequireAuthenticatedUser();
-            policy.RequireAssertion(context => PatientIdentity.TryGetPatientId(context.User, out _));
-        }));
+            options.AddPolicy(PatientIdentity.Policy, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => PatientIdentity.TryGetPatientId(context.User, out _));
+            });
+            options.AddPolicy(ClinicAdministration.Policy, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => ClinicAdministration.IsAllowed(context.User, configuration));
+            });
+        });
 
         services.AddSwaggerGen(options =>
         {

@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "API and Blazor",
+    "Projects": [
+      {
+        "Path": "backend\\PHCIS.Api\\PHCIS.Api.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      },
+      {
+        "Path": "frontend\\PHCIS.Web\\PHCIS.Web.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]

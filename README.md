@@ -3,8 +3,10 @@
 > **Current local setup:** [SQL Server and EF Identity run guide](documentation/LOCAL_DEVELOPMENT.md).
 > The portal now uses simple email/password login backed by EF Core Identity, not external OIDC/JWT.
 > Set `ConnectionStrings:Phcis` in the API appsettings file and start the API; pending EF migrations run automatically. See the [SQL Server setup guide](documentation/LOCAL_DEVELOPMENT.md#use-your-own-sql-server).
-> The optional `scripts/Initialize-LocalDevelopment.ps1` script creates the LocalDB demo; ordinary startup applies migrations without adding demo data.
-> Start the API and Blazor frontend together from the repository root: `.\scripts\Start-LocalDevelopment.ps1`, then open https://localhost:7100/login.
+> Open the solution in Visual Studio, select the **API and Blazor** launch profile, and press **F5**. The frontend opens `/login`; the API applies pending migrations and the configured Development clinic/slot seed.
+> Use **Shift+F5** before rebuilding. See the [Visual Studio setup instructions](documentation/LOCAL_DEVELOPMENT.md#run-from-visual-studio).
+> Development startup seeds four fictional clinics and future weekday time slots in your configured SQL Server. Set `Development:SeedClinicsAndSlots=false` to disable it; no demo login is created by this setting.
+> Authorized administrators can add more clinics through **Clinics > Manage clinics**. Configure their Identity account IDs as described in the [clinic management guide](documentation/LOCAL_DEVELOPMENT.md#add-clinics-through-the-app).
 > Earlier OIDC setup notes below are retained as historical reference and are not the current run instructions.
 
 ## Scenario Overview
@@ -238,7 +240,7 @@ dotnet ef database update --project backend/PHCIS.Infrastructure --startup-proje
 dotnet run --project backend/PHCIS.Api
 ```
 
-For a remote SQL Server, supply an explicit connection, trusted certificate settings, and a secret store. Startup migrations are enabled through Database:ApplyMigrationsOnStartup and use the configured SQL Server connection in every environment. Set this option to false for deployments that apply migrations separately. Only demo seeding is restricted to MSSQLLocalDB / PHCIS.Development. See the current run guide for appsettings configuration.
+For a remote SQL Server, supply an explicit connection, trusted certificate settings, and a secret store. Startup migrations are enabled through Database:ApplyMigrationsOnStartup and use the configured SQL Server connection in every environment. Set this option to false for deployments that apply migrations separately. Development clinic/slot seeding uses the configured server; the optional demo account initializer is restricted to MSSQLLocalDB / PHCIS.Development. See the current run guide for appsettings configuration.
 
 For future schema changes:
 

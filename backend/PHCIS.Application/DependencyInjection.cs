@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
+        services.AddScoped<IClinicManagementService, ClinicManagementService>();
         return services;
     }
 }

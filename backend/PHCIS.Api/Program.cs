@@ -16,6 +16,7 @@ builder.Services.AddApi(builder.Configuration);
 var app = builder.Build();
 await app.ApplyMigrationsAsync();
 await PHCIS.Api.Development.DevelopmentData.InitializeAsync(app);
+await PHCIS.Api.Development.ClinicDevelopmentData.InitializeAsync(app);
 if (initializeOnly)
 {
     if (!app.Environment.IsDevelopment())

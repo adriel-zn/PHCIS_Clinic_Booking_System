@@ -5,6 +5,10 @@
 <PageTitle>Available clinics · PHCIS</PageTitle>
 <div class="page-heading"><div><h1>Available Clinics</h1><p class="muted">Find a clinic near you</p></div><input class="clinic-search" aria-label="Search clinics" placeholder="⌕  Search clinics…" @bind="_search" @bind:event="oninput" /></div>
 <ApiError Error="_error" />
+@if (_canManageClinics)
+{
+    <p><a class="button primary" href="/manage-clinics">Manage clinics</a></p>
+}
 @if (_clinics is null && _error is null) { <p role="status">Loading clinics…</p> }
 else if (_clinics is not null)
 {
@@ -24,9 +28,14 @@ else if (_clinics is not null)
     private IReadOnlyList<ClinicCard>? _clinics;
     private string _search = "";
     private AppointmentApiException? _error;
+    private bool _canManageClinics;
     protected override async Task OnInitializedAsync()
     {
-        try { _clinics = await Portal.ClinicsAsync(); }
+        try
+        {
+            _clinics = await Portal.ClinicsAsync();
+            _canManageClinics = (await Portal.ClinicManagementAccessAsync()).CanManageClinics;
+        }
         catch (AppointmentApiException error) { _error = error; }
     }
 }

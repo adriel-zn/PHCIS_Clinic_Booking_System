@@ -64,48 +64,7 @@ public static class DevelopmentData
             await transaction.CommitAsync();
         });
 
-        (string Name, string Address, string Phone)[] demoClinics =
-        [
-            ("Central Community Clinic", "123 Main Street, Durban, 4001", "031 123 4567"),
-            ("Westville Clinic", "45 Westville Road, Westville, 3629", "031 987 6543"),
-            ("Phoenix Clinic", "78 Phoenix Highway, Phoenix, 4068", "031 555 1234"),
-            ("Umlazi Clinic", "95 King Cetshwayo Road, Umlazi, 4031", "031 666 9876")
-        ];
-        var now = clock.GetUtcNow();
-        var today = DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(2)).DateTime);
-        foreach (var demo in demoClinics)
-        {
-            var clinic = await context.Clinics.SingleOrDefaultAsync(x => x.Name == demo.Name);
-            if (clinic is null)
-            {
-                clinic = new Clinic(demo.Name, demo.Address, demo.Phone);
-                context.Clinics.Add(clinic);
-                await context.SaveChangesAsync();
-            }
-            var existing = await context.TimeSlots.Where(x => x.ClinicId == clinic.Id && x.StartsAt > now)
-                .Select(x => x.StartsAt).ToListAsync();
-            var starts = existing.ToHashSet();
-            for (var day = 0; day < 15; day++)
-            {
-                var date = today.AddDays(day);
-                if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                {
-                    continue;
-                }
-                for (var hour = 8; hour < 17; hour++)
-                {
-                    for (var minute = 0; minute < 60; minute += 30)
-                    {
-                        var start = new DateTimeOffset(date.ToDateTime(new TimeOnly(hour, minute)), TimeSpan.FromHours(2));
-                        if (start > now && starts.Add(start))
-                        {
-                            context.TimeSlots.Add(new TimeSlot(clinic, start, start.AddMinutes(30)));
-                        }
-                    }
-                }
-            }
-            await context.SaveChangesAsync();
-        }
+        await ClinicDevelopmentData.SeedAsync(context, clock);
         app.Logger.LogInformation("Development setup ready: four demo clinics and future weekday slots. Demo email: {Email}", Email);
     }
 }

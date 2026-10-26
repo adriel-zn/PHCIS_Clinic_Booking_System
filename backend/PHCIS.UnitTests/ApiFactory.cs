@@ -19,7 +19,7 @@ using PHCIS.Infrastructure.Persistence;
 namespace PHCIS.UnitTests;
 
 /// <summary>Uses the real cookie, antiforgery and API pipeline with isolated in-memory persistence.</summary>
-internal sealed class ApiFactory(string environment = "Development") : WebApplicationFactory<Program>
+internal sealed class ApiFactory(string environment = "Development", bool clinicAdministrator = false) : WebApplicationFactory<Program>
 {
     private readonly string _database = Guid.NewGuid().ToString();
     private readonly Patient _patient = DomainTestData.Patient();
@@ -35,11 +35,14 @@ internal sealed class ApiFactory(string environment = "Development") : WebApplic
         builder.UseSetting("ConnectionStrings:Phcis", "Server=localhost;Database=Tests;Integrated Security=True");
         builder.UseSetting("Development:InitializeDatabase", "false");
         builder.UseSetting("Database:ApplyMigrationsOnStartup", "false");
+        builder.UseSetting("Development:SeedClinicsAndSlots", "false");
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Phcis"] = "Server=localhost;Database=Tests;Integrated Security=True",
             ["Development:InitializeDatabase"] = "false",
-            ["Database:ApplyMigrationsOnStartup"] = "false"
+            ["Database:ApplyMigrationsOnStartup"] = "false",
+            ["Development:SeedClinicsAndSlots"] = "false",
+            ["ClinicManagement:AdministratorAccountIds:0"] = clinicAdministrator ? "test-subject" : ""
         }));
         builder.ConfigureTestServices(services =>
         {

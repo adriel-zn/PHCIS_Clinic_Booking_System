@@ -47,6 +47,13 @@ public sealed class LocalAccountUiTests : BunitContext
                     })
                 });
             }
+            if (path == "/api/clinic-management/access")
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new ClinicManagementAccess(false))
+                });
+            }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created));
         }))
         { BaseAddress = new Uri("https://api.test/") };
