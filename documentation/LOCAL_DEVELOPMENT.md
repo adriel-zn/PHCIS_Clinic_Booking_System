@@ -59,6 +59,16 @@ If an old background copy still holds an executable or port, stop that PHCIS pro
 
 Clinic management is available at `/manage-clinics`. Only explicitly authorized accounts can create clinics; normal registered patients cannot grant themselves access.
 
+#### Seeded Development Administrator
+
+Development startup creates `admin@phcis.local` when `Development:SeedAdministrator=true` (enabled in appsettings.Development.json). Set `Development:AdministratorPassword` through **PHCIS.Api > Manage User Secrets** before starting. Use a password of at least 10 characters containing uppercase, lowercase, a digit and a symbol. Identity stores the password hash in the configured SQL Server; the plaintext password must stay out of source control.
+
+Start **API and Blazor** with F5, sign in as `admin@phcis.local` using that password, and open **Clinics > Manage clinics**. No account-ID configuration is required: the seed saves a server-managed `phcis_permission=manage_clinics` Identity claim, included in the secure session at login. A linked patient profile allows the same account to use the portal.
+
+The seed never runs outside Development. Repeated runs preserve the existing password and profile. An ordinary account using the reserved email causes a clear startup failure rather than being promoted or having its password reset. Set `Development:SeedAdministrator=false` after creation if desired; the administrator remains in the database. Changing the seed password setting does not reset an existing account. On another machine, configure the password through Manage User Secrets before starting, or disable the seed.
+
+#### Authorize an Existing Account (Optional)
+
 1. Register your own account and sign in.
 2. In Visual Studio **SQL Server Object Explorer** (or SSMS), connect to your configured database. Find your account in `dbo.AspNetUsers` by `Email` and copy its `Id` (the Identity account ID, not `PatientId`).
 3. In **PHCIS.Api > Manage User Secrets**, add the following section alongside your existing settings, replacing the example with that ID:

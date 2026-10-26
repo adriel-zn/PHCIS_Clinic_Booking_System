@@ -36,12 +36,14 @@ internal sealed class ApiFactory(string environment = "Development", bool clinic
         builder.UseSetting("Development:InitializeDatabase", "false");
         builder.UseSetting("Database:ApplyMigrationsOnStartup", "false");
         builder.UseSetting("Development:SeedClinicsAndSlots", "false");
+        builder.UseSetting("Development:SeedAdministrator", "false");
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Phcis"] = "Server=localhost;Database=Tests;Integrated Security=True",
             ["Development:InitializeDatabase"] = "false",
             ["Database:ApplyMigrationsOnStartup"] = "false",
             ["Development:SeedClinicsAndSlots"] = "false",
+            ["Development:SeedAdministrator"] = "false",
             ["ClinicManagement:AdministratorAccountIds:0"] = clinicAdministrator ? "test-subject" : ""
         }));
         builder.ConfigureTestServices(services =>
