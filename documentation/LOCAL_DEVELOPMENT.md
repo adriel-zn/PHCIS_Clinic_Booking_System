@@ -63,11 +63,11 @@ Clinic management is available at `/manage-clinics`. Only explicitly authorized 
 
 #### Seeded Development Administrator
 
-Development startup creates `admin@phcis.local` when `Development:SeedAdministrator=true` (enabled in appsettings.Development.json). Set `Development:AdministratorPassword` through **PHCIS.Api > Manage User Secrets** before starting. Use a password of at least 10 characters containing uppercase, lowercase, a digit and a symbol. Identity stores the password hash in the configured SQL Server; the plaintext password must stay out of source control.
+Development startup creates `admin@phcis.local` when `Development:SeedAdministrator=true` (enabled in appsettings.Development.json). For first-time local use, its public demo password is `AdminDemo!2026`, shown on the development login page. Identity stores only its password hash. You can override this default with `Development:AdministratorPassword` through **PHCIS.Api > Manage User Secrets**; keep custom passwords out of source control. Hide the default hint by setting frontend `Api:ShowDevelopmentLogin=false` if you customize the password. The base frontend configuration hides the hint; Visual Studio Development and the local Docker image enable it.
 
 Start **API and Blazor** with F5, sign in as `admin@phcis.local` using that password, and open **Clinics > Manage clinics**. No account-ID configuration is required: the seed assigns the standard Identity `Admin` and `Patient` roles. A linked patient profile allows the same account to use the portal.
 
-The administrator-account seed never runs outside Development. Repeated runs preserve the existing password, profile and role memberships. Existing accounts are never automatically promoted: removing Admin access remains effective after restart, including for the seeded account. Set `Development:SeedAdministrator=false` after creation if desired; the account remains in the database. Changing the seed password setting does not reset an existing account. On another machine, configure the password through Manage User Secrets before starting, or disable the seed.
+The administrator-account seed never runs outside Development. Repeated runs preserve the existing password, profile and role memberships. Existing accounts are never automatically promoted: removing Admin access remains effective after restart, including for the seeded account. Set `Development:SeedAdministrator=false` after creation if desired; the account remains in the database. Changing the seed password setting does not reset an existing account. New local databases can use the default above without a password secret; never use this public demo credential for a deployed system.
 
 #### Add a Clinic
 

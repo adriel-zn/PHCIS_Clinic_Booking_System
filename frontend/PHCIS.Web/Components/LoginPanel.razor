@@ -1,5 +1,6 @@
 @inject AccountClient Accounts
 @inject NavigationManager Navigation
+@inject IServiceProvider Services
 <div class="login-scene">
     <div class="login-card">
         <div class="login-brand"><span class="medical-plus" aria-hidden="true">✚</span><h1>PHCIS</h1><strong>Clinic Booking System</strong><p>Sign in to access your account</p></div>
@@ -15,10 +16,23 @@
         </EditForm>
         <ApiError Error="_error" />
         <p class="register-link">Don't have an account? <a href="/register">Register</a></p>
+        @if (ShowDevelopmentLogin)
+        {
+            <aside class="development-login" aria-labelledby="first-login-heading">
+                <h2 id="first-login-heading">First-time sign-in</h2>
+                <p>Use the local demo administrator to manage clinics, staff and users.</p>
+                <dl>
+                    <dt>Email</dt><dd>admin@phcis.local</dd>
+                    <dt>Password</dt><dd><code>AdminDemo!2026</code></dd>
+                </dl>
+                <p class="muted">Local development only. Register above to create a patient account.</p>
+            </aside>
+        }
     </div>
     <div class="login-caption">Quality Healthcare<br />for Healthier Communities</div>
 </div>
 @code {
+    private bool ShowDevelopmentLogin => Services.GetService<PHCIS.Web.Configuration.PortalOptions>()?.ShowDevelopmentLogin == true;
     private readonly LoginModel _model = new();
     private bool _busy, _showPassword, _help;
     private AppointmentApiException? _error;

@@ -1278,3 +1278,16 @@ td{
     }
 }
 .ui-icon { width: 18px; height: 18px; vertical-align: middle; flex-shrink: 0; } .stat-icon .ui-icon, .quick-card .ui-icon { width: 30px; height: 30px; } .clinic-card p, .clinic-details p { display: flex; align-items: center; gap: 7px; } .clinic-card p .ui-icon, .clinic-details p .ui-icon { width: 14px; height: 14px; }
+.development-login {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border: 1px solid #cbdff4;
+    border-radius: .6rem;
+    background: #f2f7fd;
+    text-align: left;
+}
+.development-login h2 { margin: 0 0 .5rem; font-size: 1rem; }
+.development-login p { font-size: .85rem; }
+.development-login dl { margin: .75rem 0; }
+.development-login dt { font-size: .8rem; font-weight: 600; }
+.development-login dd { margin: .15rem 0 .6rem; overflow-wrap: anywhere; }

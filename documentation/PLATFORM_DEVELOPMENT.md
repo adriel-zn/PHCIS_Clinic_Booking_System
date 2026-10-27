@@ -90,7 +90,7 @@ The GraphQL path applies the same live clinic assignment checks as REST. Patient
 The root `compose.yaml` defines separate API, Blazor/Caddy, SQL Server 2022 and Mailpit services. The Docker database uses its own named volume and does not replace your existing Windows SQL Server database. API Data Protection keys and the local Caddy certificate authority also persist in named volumes.
 
 1. Start Docker Desktop with its Linux engine running.
-2. Copy `.env.example` to an untracked `.env`. Replace both placeholders with different strong local passwords. Never commit this file.
+2. Copy `.env.example` to an untracked `.env`. Replace the SQL password placeholder with a strong local password. The administrator default is the public local demo password shown on the login page; customize it if desired and hide the default hint. Never commit this file.
 3. From the repository root, run `docker compose up --build -d` (or start this Compose project through your Docker tooling).
 4. The browser URL is https://localhost:8443/login and Mailpit is http://localhost:8025. Only loopback host ports are published; SQL Server and the API are internal to the Compose network.
 
@@ -120,7 +120,7 @@ The API image uses the official .NET 10 SDK/runtime and runs as the image's non-
 
 Automated tests cover clinic scope/revocation, staff patient-edit boundaries, inactive/archived sessions, last-active-admin protection, GraphQL ownership/scoping, separate redacted log persistence, outbox timing/skips, notification uniqueness, SignalR recipient selection and payload-free delivery, plus the UI management and query paths. SMTP is tested through a transport double; real delivery is inspected in Mailpit. In-memory EF tests do not prove SQL locking, so SQL Server startup/migrations are also checked separately.
 
-Compose configuration validates successfully. Image builds and a running container smoke test require a working Docker engine; the local Docker Desktop engine did not become ready during implementation, so container execution remains unverified. No background API/frontend hosts were left running; use Visual Studio for the normal workflow.
+On 27 October 2026, both application images built and all four Compose services started successfully. Startup migrations and seeding created four clinics and 784 slots in the isolated Docker SQL database. A live synthetic patient/staff test verified SQL-backed booking, scoped GraphQL retrieval, actual SMTP confirmation and the five-minute reminder in Mailpit, cancellation with slot release, and both SignalR events reaching patient and assigned staff connections. Activity log rows were also verified in SQL Server. The stack remains running for local testing. HTTPS can reuse the existing trusted ASP.NET certificate through the override above without changing Windows trust.
 
 ```mermaid
 flowchart LR

@@ -64,6 +64,26 @@ public sealed class LocalAccountUiTests : BunitContext
     }
 
     [Fact]
+    public void LoginHidesPublicDemoCredentialsByDefault()
+    {
+        var page = Render<LoginPanel>();
+        Assert.Empty(page.FindAll(".development-login"));
+        Assert.DoesNotContain("AdminDemo!2026", page.Markup);
+    }
+
+    [Fact]
+    public void LocalFirstTimeLoginExplainsAdministratorAndPatientAccess()
+    {
+        Services.AddSingleton(new PHCIS.Web.Configuration.PortalOptions { ShowDevelopmentLogin = true });
+        var page = Render<LoginPanel>();
+        var hint = page.Find(".development-login");
+        Assert.Contains("admin@phcis.local", hint.TextContent);
+        Assert.Contains("AdminDemo!2026", hint.TextContent);
+        Assert.Contains("patient account", hint.TextContent);
+        Assert.Equal("", page.Find("#password").GetAttribute("value"));
+    }
+
+    [Fact]
     public void LoginValidatesBeforeSendingPassword()
     {
         var page = Render<LoginPanel>();

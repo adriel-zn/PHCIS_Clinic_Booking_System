@@ -12,6 +12,8 @@ public static class AdministratorDevelopmentData
 {
     /// <summary>Reserved development administrator login.</summary>
     public const string Email = "admin@phcis.local";
+    /// <summary>Public local-development credential; never used outside the explicitly enabled Development seed.</summary>
+    public const string FirstUsePassword = "AdminDemo!2026";
 
     /// <summary>Seeds only in Development, using the configured SQL Server and a local secret.</summary>
     public static async Task InitializeAsync(WebApplication app)
@@ -26,7 +28,7 @@ public static class AdministratorDevelopmentData
         {
             context.ChangeTracker.Clear();
             await SeedAsync(context, users, scope.ServiceProvider.GetRequiredService<TimeProvider>(),
-                app.Configuration["Development:AdministratorPassword"]);
+                app.Configuration["Development:AdministratorPassword"] ?? FirstUsePassword);
         });
         app.Logger.LogInformation("Development administrator seed completed; existing role memberships were preserved.");
     }
