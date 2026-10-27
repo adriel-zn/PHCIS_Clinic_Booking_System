@@ -46,7 +46,7 @@ Email uses SMTP behind `IEmailDelivery`; Mailpit provides a local inbox instead 
 }
 ```
 
-The base configuration disables delivery until explicitly enabled. Open the local Mailpit inbox at http://localhost:8025. Mailpit's local SMTP port is 1025. Its inbox and SMTP host ports are bound to loopback by Compose. See the [Mailpit Docker documentation](https://mailpit.axllent.org/docs/install/docker/).
+The base configuration disables delivery; Development enables it using `localhost:1025`, and Docker overrides the SMTP host to `mailpit`. Start Mailpit before booking from Visual Studio and restart the API after changing email settings. Open the local inbox at **http://localhost:8025**. Port **1025** accepts SMTP, so do not open it in a browser. Both host ports are bound to loopback. Mailpit stores captured messages in the `mailpit-data` named volume so they survive container restarts/recreation. It captures development messages locally and does not deliver them to Gmail or other external mailboxes. See the [Mailpit Docker documentation](https://mailpit.axllent.org/docs/install/docker/).
 
 Booking/rescheduling stages confirmation and reminder records in `AppointmentNotifications` in the same EF save as the appointment. A background worker polls every 30 seconds, claims work with a two-minute lease, and sends to the current account email. A reminder is due 24 hours before attendance by default. If booking occurs within that window, it is due five minutes after booking, provided that is still before the slot starts.
 

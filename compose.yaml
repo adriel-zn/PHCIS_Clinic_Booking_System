@@ -15,6 +15,10 @@ services:
     networks: [phcis]
   mailpit:
     image: axllent/mailpit:v1.27
+    environment:
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit-data:/data
     ports:
       - "127.0.0.1:8025:8025"
       - "127.0.0.1:1025:1025"
@@ -57,6 +61,7 @@ services:
     depends_on: [api]
     networks: [phcis]
 volumes:
+  mailpit-data:
   sql-data:
   api-keys:
   caddy-data:
