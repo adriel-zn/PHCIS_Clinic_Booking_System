@@ -5,6 +5,8 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${PHCIS_SQL_PASSWORD:?Set PHCIS_SQL_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:14330:1433"
     volumes:
       - sql-data:/var/opt/mssql
     healthcheck:
