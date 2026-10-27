@@ -17,6 +17,80 @@
 > **Staff dashboard** lets Staff-role users view appointments by clinic, date and status, then mark ended Scheduled appointments Completed or No-show. Administrators also need Staff membership for this dashboard.
 > Earlier OIDC setup notes below are retained as historical reference and are not the current run instructions.
 
+## Docker: Set Up or Rebuild from Scratch
+
+Run the commands below from `D:\github\PHCIS`. Start Docker Desktop with its **Linux engine** running. These steps use the existing Compose configuration and require no application-code changes or PowerShell scripts.
+
+### 1. Keep or Recreate Local Settings
+
+Keep `.env` and `docker/certificates` when removing containers. Both are Git-ignored local setup files.
+
+If `.env` is missing, copy `.env.example` to `.env` using File Explorer. Replace `PHCIS_SQL_PASSWORD` with a strong local SQL Server password. Keep `PHCIS_ADMIN_PASSWORD=AdminDemo!2026` to use the public development administrator credentials below. Do not commit `.env`.
+
+If the certificate files are missing, create the `docker/certificates` folder and run:
+
+```text
+dotnet dev-certs https --check --trust
+dotnet dev-certs https --export-path docker/certificates/localhost.pem --format Pem --no-password
+```
+
+The first command only checks whether an existing ASP.NET localhost development certificate is trusted; it does not change Windows trust. Continue with this HTTPS setup only when that check succeeds. The export creates `localhost.pem` and its private key, `localhost.key`; keep both local and do not share them. If the certificate is missing, untrusted or expired, resolve the development certificate setup first; do not bypass browser certificate warnings. See the [Docker HTTPS guide](documentation/PLATFORM_DEVELOPMENT.md#reuse-an-existing-trusted-aspnet-development-certificate).
+
+### 2. Optional: Delete the Existing Docker Database
+
+Skip this step for a first installation, or if you want to keep existing Docker data. If only the containers were deleted, starting them again in step 3 reuses the remaining named volumes.
+
+**Destructive reset:** the following command removes this PHCIS Compose project's containers and named volumes, permanently deleting its Docker SQL database, captured Mailpit emails, Data Protection keys and Caddy data. Back up anything you need before running it. It leaves your separate Windows SQL Server database and the local files from step 1 untouched.
+
+```text
+docker compose down -v
+```
+
+This is not required for a normal restart. After a reset, patient accounts, bookings, extra clinics and staff assignments must be recreated; seeding does not restore previous data.
+
+### 3. Build and Start All Services
+
+```text
+docker compose -f compose.yaml -f compose.dev-cert.yaml up --build -d
+```
+
+Use both Compose files for subsequent start/recreate commands to retain the existing-certificate HTTPS configuration. Docker starts SQL Server, Mailpit, the API and the Blazor frontend. The first build may take several minutes to download images and packages.
+
+Once SQL Server is healthy, API startup automatically applies pending **EF Core migrations** and seeds the `Patient`, `Staff` and `Admin` roles, four fictional clinics, future weekday time slots and the development administrator. No manual migration command is needed. The Docker database uses its own named volume and connection string; it does not use the Windows SQL Server connection in your API development settings.
+
+### 4. Sign In and Test
+
+| Service | Address |
+| --- | --- |
+| Application login | [https://localhost:8443/login](https://localhost:8443/login) |
+| Mailpit inbox | [http://localhost:8025](http://localhost:8025) |
+| API health | [https://localhost:8443/health](https://localhost:8443/health) |
+
+For a new database with the example `.env` administrator password:
+
+- **Email:** `admin@phcis.local`
+- **Password:** `AdminDemo!2026`
+
+These are public local-development credentials. If you customized `PHCIS_ADMIN_PASSWORD`, use that value instead. Changing the seed setting does not reset an account in a retained database.
+
+Sign in as the administrator to manage clinics, users and staff assignments. Register a patient account to test booking and cancellation. Booking confirmations and due reminders appear in Mailpit; it captures messages locally rather than delivering them to external mailboxes. Open **HTTP port 8025** in your browser; port **1025** is for SMTP only. Mailpit messages survive restarts through its named volume, but are removed by the destructive reset above.
+
+### 5. Check Startup or Stop Safely
+
+```text
+docker compose ps
+docker compose logs --tail 100 api
+docker compose logs --tail 100 mailpit
+```
+
+Wait for API initialization to finish and `/health` to report `Ready` before signing in. For an ordinary shutdown that preserves the database and captured emails:
+
+```text
+docker compose stop
+```
+
+For more details, see the [platform development guide](documentation/PLATFORM_DEVELOPMENT.md).
+
 ## Scenario Overview
 
 You are tasked with designing and implementing a simplified Clinic Booking System for PHCIS (Primary Health Care Information System). The system should allow patients to book appointments at clinics, view available time slots, and receive confirmation. 
