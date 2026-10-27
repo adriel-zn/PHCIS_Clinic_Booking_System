@@ -96,6 +96,18 @@ The root `compose.yaml` defines separate API, Blazor/Caddy, SQL Server 2022 and 
 
 Caddy uses a local development certificate authority. Before browsing, export its root with `docker compose cp web:/data/caddy/pki/authorities/local/root.crt ./docker-root.crt` and import it through your operating system's certificate manager into the trusted root store for local development. Inspect and trust only this local development CA; do not bypass browser certificate warnings. Delete the exported copy when no longer needed. The container retains its own CA in its named volume.
 
+### Reuse an existing trusted ASP.NET development certificate
+
+If Visual Studio HTTPS already works, this optional override lets Docker use that same localhost certificate without adding Caddy's CA to Windows trust. First verify the existing certificate; `--check --trust` checks trust without changing it:
+
+```text
+dotnet dev-certs https --check --trust
+dotnet dev-certs https --export-path docker/certificates/localhost.pem --format Pem --no-password
+docker compose -f compose.yaml -f compose.dev-cert.yaml up --build -d
+```
+
+Create `docker/certificates` before exporting if it does not exist. The export contains a private key, stays in this Git-ignored folder, and is mounted read-only into Caddy. Do not share or commit it. This option requires an already trusted, valid certificate; it does not install or trust one. Renew and re-export it when it expires, then restart `web`. Use both Compose files for subsequent start/recreate operations so the certificate override remains active. Ordinary `docker compose ps`, `logs`, and `stop` still address the same project.
+
 The API honors forwarded HTTPS headers only from the configured private Compose network (172.28.0.0/24). Cookies retain their Secure/HttpOnly settings; the browser, API proxy and SignalR endpoint share the same HTTPS origin. In the container the initial administrator password comes from `PHCIS_ADMIN_PASSWORD`, while the seeded login remains `admin@phcis.local`. Assign Staff/clinics explicitly after first sign-in.
 
 Compose uses distinct authentication/CSRF cookie names so Docker and Visual Studio sessions on localhost do not overwrite each other. Their databases and Data Protection keys also remain separate.

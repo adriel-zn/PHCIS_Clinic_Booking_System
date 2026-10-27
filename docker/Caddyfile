@@ -1,5 +1,5 @@
 https://localhost:8443 {
-    tls internal
+    tls {$PHCIS_TLS_CERT:internal} {$PHCIS_TLS_KEY:}
     @backend path /api/* /hubs/* /graphql /graphql/* /health /swagger/*
     handle @backend {
         reverse_proxy api:8080
