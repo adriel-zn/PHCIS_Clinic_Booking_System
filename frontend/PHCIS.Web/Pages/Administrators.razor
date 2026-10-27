@@ -1,0 +1,102 @@
+@page "/administrators"
+@attribute [Authorize]
+@inject PortalClient Portal
+@inject NavigationManager Navigation
+
+<PageTitle>Administrators · PHCIS</PageTitle>
+<h1>Administrators</h1>
+<p><a href="/manage-clinics">Back to clinic management</a></p>
+<p><a href="/staff">View and manage staff</a></p>
+<ApiError Error="_error" />
+@if (_loading)
+{
+    <p role="status">Loading administrators…</p>
+}
+else if (!_allowed)
+{
+    <p>Administrator access is required to view this page.</p>
+}
+else
+{
+    <p>Removing administrator access keeps the person's account and patient access. The final administrator cannot be removed.</p>
+    @if (_message is not null) { <p role="status">@_message</p> }
+    <button type="button" class="secondary" disabled="@_busy" @onclick="LoadAsync">Refresh administrators</button>
+    @if (_administrators is not null)
+    {
+        <div class="table-scroll">
+            <table class="admin-slot-table">
+                <thead><tr><th>Email</th><th>Role</th><th>Action</th></tr></thead>
+                <tbody>
+                    @foreach (var admin in _administrators)
+                    {
+                        <tr>
+                            <td>@admin.Email @(admin.IsCurrentUser ? "(you)" : "")</td>
+                            <td>Admin</td>
+                            <td>
+                                <button type="button" disabled="@(_busy || !admin.CanRemove)" @onclick="() => SelectRemoval(admin)">Remove administrator access</button>
+                                @if (!admin.CanRemove) { <span>Last administrator — protected</span> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    @if (_selected is not null)
+    {
+        <section class="panel admin-section" aria-labelledby="remove-admin-heading">
+            <h2 id="remove-admin-heading">Remove administrator access?</h2>
+            <p>@_selected.Email will lose access to manage clinics, slots and administrators immediately.</p>
+            @if (_selected.IsCurrentUser) { <p>This is your account. You will return to the clinic list after removal.</p> }
+            <button id="confirm-admin-removal" type="button" class="primary" disabled="@_busy" @onclick="RemoveAsync">Confirm removal</button>
+            <button type="button" disabled="@_busy" @onclick="() => _selected = null">Keep administrator access</button>
+        </section>
+    }
+    <AdministratorGrantPanel OnGranted="LoadAsync" />
+}
+
+@code {
+    private IReadOnlyList<AdministratorDetails>? _administrators;
+    private AdministratorDetails? _selected;
+    private bool _loading = true;
+    private bool _allowed;
+    private bool _busy;
+    private string? _message;
+    private AppointmentApiException? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _error = null;
+        _selected = null;
+        try
+        {
+            _allowed = (await Portal.ClinicManagementAccessAsync()).CanManageClinics;
+            if (_allowed) _administrators = await Portal.AdministratorsAsync();
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _loading = false; _busy = false; }
+    }
+
+    private void SelectRemoval(AdministratorDetails admin) { _selected = admin; _message = null; }
+
+    private async Task RemoveAsync()
+    {
+        if (_busy || _selected is null) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Portal.RemoveAdministratorAsync(_selected.Id);
+            if (_selected.IsCurrentUser) { Navigation.NavigateTo("/clinics", forceLoad: true); return; }
+            _selected = null;
+            _message = "Administrator access removed.";
+            _administrators = await Portal.AdministratorsAsync();
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}

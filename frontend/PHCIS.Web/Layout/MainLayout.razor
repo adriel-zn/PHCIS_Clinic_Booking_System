@@ -1,0 +1,47 @@
+@inherits LayoutComponentBase
+@inject LocalAuthenticationStateProvider Session
+@inject AccountClient Accounts
+@inject NavigationManager Navigation
+<AuthorizeView>
+    <Authorized>
+        <LiveUpdatesListener />
+        <div class="app-shell">
+            <aside class="sidebar">
+                <a class="sidebar-brand" href="/"><span class="shield" aria-hidden="true">✚</span><span><strong>PHCIS</strong><small>Clinic Booking System</small></span></a>
+                <nav aria-label="Patient navigation">
+                    <NavLink href="/" Match="NavLinkMatch.All"><Icon Name="home" />Home</NavLink>
+                    <NavLink href="/booking"><Icon Name="calendar" />Book Appointment</NavLink>
+                    <NavLink href="/appointments"><Icon Name="list" />My Appointments</NavLink>
+                    <NavLink href="/clinics" Match="NavLinkMatch.All"><Icon Name="clinic" />Clinics</NavLink>
+                    <NavLink href="/profile"><Icon Name="profile" />Profile</NavLink>
+                    <StaffDashboardLink />
+                    <UserManagementLink />
+                </nav>
+            </aside>
+            <div class="app-main">
+                <header class="topbar">
+                    <span class="mobile-brand">✚ PHCIS</span>
+                    <span class="patient-avatar">@PortalDisplay.Initials(Session.Profile)</span>
+                    <span class="patient-name">@Session.Profile?.FullName</span>
+                    <button type="button" class="text-button" disabled="@_signingOut" @onclick="SignOutAsync">Sign out</button>
+                </header>
+                <main id="main-content"><ApiError Error="_signOutError" />@Body</main>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>@Body</NotAuthorized>
+    <Authorizing><div class="loading-shell" role="status">Loading your account…</div></Authorizing>
+</AuthorizeView>
+@code {
+    private bool _signingOut;
+    private AppointmentApiException? _signOutError;
+    private async Task SignOutAsync()
+    {
+        if (_signingOut) return;
+        _signingOut = true;
+        try { await Accounts.LogoutAsync(); Navigation.NavigateTo("/login", forceLoad: true); }
+        catch (AppointmentApiException error) { _signOutError = error; }
+        finally { _signingOut = false; }
+    }
+}
+

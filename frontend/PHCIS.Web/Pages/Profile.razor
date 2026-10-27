@@ -1,0 +1,54 @@
+@page "/profile"
+@attribute [Authorize]
+@inject LocalAuthenticationStateProvider Session
+@inject AccountClient Accounts
+<PageTitle>My profile · PHCIS</PageTitle>
+<div class="page-heading"><h1>My Profile</h1><button class="quiet" @onclick="Edit">✎ Edit Profile</button></div>
+<ApiError Error="_error" />
+@if (Session.Profile is { } profile)
+{
+    <section class="panel profile-panel">
+        <div class="profile-heading"><span class="patient-avatar large">@PortalDisplay.Initials(profile)</span><div><h2>@profile.FullName</h2><p>@profile.Email</p></div></div>
+        @if (_editing)
+        {
+            <EditForm Model="_model" OnValidSubmit="SaveAsync" FormName="profile-edit"><DataAnnotationsValidator /><ValidationSummary />
+                <fieldset disabled="@_busy">
+                    <div class="form-grid">
+                        <div class="field"><label for="profile-first">First name</label><InputText id="profile-first" @bind-Value="_model.FirstName" /></div>
+                        <div class="field"><label for="profile-last">Last name</label><InputText id="profile-last" @bind-Value="_model.LastName" /></div>
+                        <div class="field"><label for="profile-phone">Phone number</label><InputText id="profile-phone" @bind-Value="_model.PhoneNumber" /></div>
+                        <div class="field"><label for="profile-dob">Date of birth</label><InputDate id="profile-dob" @bind-Value="_model.DateOfBirth" /></div>
+                        <div class="field"><label for="profile-id">ID number (optional)</label><InputText id="profile-id" @bind-Value="_model.NationalId" maxlength="20" /></div>
+                    </div>
+                    <p class="muted">Account email is read-only. Contact your clinic for account changes.</p>
+                    <div class="button-row"><button type="button" class="quiet" @onclick="() => _editing = false">Cancel</button><button type="submit" class="primary">@(_busy ? "Saving…" : "Save Profile")</button></div>
+                </fieldset>
+            </EditForm>
+        }
+        else
+        {
+            <dl class="details-table"><dt>Full Name</dt><dd>@profile.FullName</dd><dt>Email</dt><dd>@profile.Email</dd><dt>Phone Number</dt><dd>@profile.PhoneNumber</dd><dt>ID Number</dt><dd>@(profile.NationalId ?? "Not provided")</dd><dt>Date of Birth</dt><dd>@profile.DateOfBirth.ToString("dd MMMM yyyy")</dd></dl>
+        }
+    </section>
+}
+@code {
+    private ProfileModel _model = new();
+    private bool _editing, _busy;
+    private AppointmentApiException? _error;
+    private void Edit()
+    {
+        var profile = Session.Profile;
+        if (profile is null) return;
+        _model = new ProfileModel { FirstName = profile.FirstName, LastName = profile.LastName, PhoneNumber = profile.PhoneNumber ?? "", DateOfBirth = profile.DateOfBirth, NationalId = profile.NationalId };
+        _editing = true;
+    }
+    private async Task SaveAsync()
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await Accounts.UpdateProfileAsync(_model); _editing = false; }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}
+

@@ -1,0 +1,35 @@
+@inject AccountClient Accounts
+@inject NavigationManager Navigation
+<div class="login-scene">
+    <div class="login-card">
+        <div class="login-brand"><span class="medical-plus" aria-hidden="true">✚</span><h1>PHCIS</h1><strong>Clinic Booking System</strong><p>Sign in to access your account</p></div>
+        <EditForm Model="_model" OnValidSubmit="SignInAsync" FormName="local-login">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <fieldset disabled="@_busy">
+                <div class="field"><label for="email">Email</label><InputText id="email" type="email" @bind-Value="_model.Email" autocomplete="username" placeholder="Enter your email" /></div>
+                <div class="field"><label for="password">Password</label><div class="password-field"><InputText id="password" type="@(_showPassword ? "text" : "password")" @bind-Value="_model.Password" autocomplete="current-password" placeholder="Enter your password" /><button type="button" class="password-toggle" aria-label="Show or hide password" @onclick="() => _showPassword = !_showPassword">◉</button></div></div>
+                <div class="login-options"><label><InputCheckbox @bind-Value="_model.RememberMe" /> Remember me</label><button type="button" class="text-button" @onclick="() => _help = true">Forgot password?</button></div>
+                @if (_help) { <p class="muted">Contact your clinic for help recovering your account.</p> }
+                <button type="submit" class="primary full">@(_busy ? "Signing in…" : "Sign In")</button>
+            </fieldset>
+        </EditForm>
+        <ApiError Error="_error" />
+        <p class="register-link">Don't have an account? <a href="/register">Register</a></p>
+    </div>
+    <div class="login-caption">Quality Healthcare<br />for Healthier Communities</div>
+</div>
+@code {
+    private readonly LoginModel _model = new();
+    private bool _busy, _showPassword, _help;
+    private AppointmentApiException? _error;
+    private async Task SignInAsync()
+    {
+        if (_busy) return;
+        _busy = true; _error = null;
+        try { await Accounts.LoginAsync(_model); Navigation.NavigateTo("/"); }
+        catch (AppointmentApiException error) { _error = error; }
+        catch (Exception) { _error = new AppointmentApiException(0, "We couldn't sign you in. Please try again."); }
+        finally { _model.Password = ""; _busy = false; }
+    }
+}
+

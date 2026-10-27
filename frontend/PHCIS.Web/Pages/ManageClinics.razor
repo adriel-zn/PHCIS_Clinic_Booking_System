@@ -1,0 +1,82 @@
+@page "/manage-clinics"
+@attribute [Authorize]
+@inject PortalClient Portal
+
+<PageTitle>Manage clinics · PHCIS</PageTitle>
+<h1>Manage Clinics</h1>
+<ApiError Error="_error" />
+@if (_loading)
+{
+    <p role="status">Checking clinic administrator access…</p>
+}
+else if (!_allowed)
+{
+    <p>Clinic administrator access is required. Ask your system administrator to enable your account.</p>
+    <a href="/clinics">Back to clinics</a>
+}
+else
+{
+    <p><a href="/administrators">View and manage administrators</a></p>
+    <p><a href="/staff">View and manage staff</a></p>
+    @if (_success is not null)
+    {
+        <p role="status">@_success <a href="/clinics">View clinics</a></p>
+    }
+    <section class="panel">
+        <h2>Add a clinic</h2>
+        <p>Creates future 30-minute appointments, Monday–Friday, 08:00–17:00 South African time, for the next 15 calendar days.</p>
+        <EditForm id="create-clinic-form" Model="_model" OnValidSubmit="CreateAsync" FormName="create-clinic">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <fieldset disabled="@_saving">
+                <div class="field">
+                    <label for="clinic-name">Clinic name *</label>
+                    <InputText id="clinic-name" @bind-Value="_model.Name" maxlength="200" />
+                </div>
+                <div class="field">
+                    <label for="clinic-address">Address *</label>
+                    <InputTextArea id="clinic-address" @bind-Value="_model.Address" maxlength="500" />
+                </div>
+                <div class="field">
+                    <label for="clinic-phone">Phone number</label>
+                    <InputText id="clinic-phone" @bind-Value="_model.PhoneNumber" maxlength="30" />
+                </div>
+                <button type="submit" class="primary">@(_saving ? "Adding clinic…" : "Add clinic")</button>
+            </fieldset>
+        </EditForm>
+    </section>
+    <ClinicAdministrationPanel />
+    <AdministratorGrantPanel />
+}
+
+@code {
+    private CreateClinicModel _model = new();
+    private bool _loading = true;
+    private bool _allowed;
+    private bool _saving;
+    private string? _success;
+    private AppointmentApiException? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _allowed = (await Portal.ClinicManagementAccessAsync()).CanManageClinics; }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _loading = false; }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (_saving) return;
+        _saving = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            await Portal.CreateClinicAsync(_model);
+            _success = $"{_model.Name} was added with initial availability.";
+            _model = new CreateClinicModel();
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _saving = false; }
+    }
+}

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/PHCIS.Api/PHCIS.Api.csproj" />
+    <Project Path="backend/PHCIS.Application/PHCIS.Application.csproj" />
+    <Project Path="backend/PHCIS.Domain/PHCIS.Domain.csproj" />
+    <Project Path="backend/PHCIS.Infrastructure/PHCIS.Infrastructure.csproj" />
+    <Project Path="backend/PHCIS.UnitTests/PHCIS.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/frontend/">
+    <Project Path="frontend/PHCIS.Web.Tests/PHCIS.Web.Tests.csproj" />
+    <Project Path="frontend/PHCIS.Web/PHCIS.Web.csproj" />
+  </Folder>
+</Solution>

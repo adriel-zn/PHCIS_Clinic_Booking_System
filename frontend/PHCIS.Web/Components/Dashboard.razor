@@ -1,0 +1,32 @@
+@inject LocalAuthenticationStateProvider Session
+@inject PortalClient Portal
+@inject TimeProvider Clock
+<h1>Welcome, @Session.Profile?.FullName <span aria-hidden="true">👋</span></h1>
+<p class="muted">Manage your healthcare appointments</p>
+<ApiError Error="_error" />
+@if (_appointments is null && _error is null) { <p role="status">Loading your appointments…</p> }
+else if (_appointments is not null)
+{
+    <div class="stat-grid">
+        <a class="stat-card" href="/appointments"><span class="stat-icon blue"><Icon Name="calendar" /></span><strong>@_appointments.Count(x => x.Status == "Scheduled" && x.StartsAt > Clock.GetUtcNow())</strong><span>Upcoming<br />Appointments</span></a>
+        <a class="stat-card" href="/appointments"><span class="stat-icon amber"><Icon Name="clock" /></span><strong>@_appointments.Count(x => x.Status == "Cancelled")</strong><span>Cancelled<br />Appointments</span></a>
+        <a class="stat-card" href="/appointments"><span class="stat-icon green"><Icon Name="check" /></span><strong>@_appointments.Count(x => x.Status == "Completed")</strong><span>Completed<br />Appointments</span></a>
+    </div>
+}
+<h2 class="section-title">Quick Actions</h2>
+<div class="quick-grid">
+    <a class="quick-card" href="/clinics"><span><Icon Name="calendar" /></span><h3>Book Appointment</h3><p>Find and book a new appointment</p></a>
+    <a class="quick-card" href="/appointments"><span><Icon Name="list" /></span><h3>View My Appointments</h3><p>See your upcoming and past appointments</p></a>
+    <a class="quick-card" href="/profile"><span><Icon Name="profile" /></span><h3>Update My Profile</h3><p>Manage your personal information</p></a>
+</div>
+<section class="panel dashboard-note"><h2>Your next visit starts here.</h2><p>Choose a clinic to see its available times. Your appointment is saved only after you confirm the booking.</p><a class="button primary" href="/clinics">Find a clinic →</a></section>
+@code {
+    private IReadOnlyList<AppointmentDetails>? _appointments;
+    private AppointmentApiException? _error;
+    protected override async Task OnInitializedAsync()
+    {
+        try { _appointments = await Portal.AppointmentsAsync(); }
+        catch (AppointmentApiException error) { _error = error; }
+    }
+}
+

@@ -1,0 +1,9 @@
+# Optional: reuse an already trusted ASP.NET localhost development certificate.
+# Export the existing certificate first; see documentation/PLATFORM_DEVELOPMENT.md.
+services:
+  web:
+    environment:
+      PHCIS_TLS_CERT: /certificates/localhost.pem
+      PHCIS_TLS_KEY: /certificates/localhost.key
+    volumes:
+      - ./docker/certificates:/certificates:ro

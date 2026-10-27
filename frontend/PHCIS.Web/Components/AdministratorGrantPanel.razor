@@ -1,0 +1,45 @@
+@inject PortalClient Portal
+
+<section class="panel admin-section">
+    <h2>Add another administrator</h2>
+    <p>The person must register first. This grants access to manage clinics, slots and other administrators without changing their password.</p>
+    <ApiError Error="_error" />
+    @if (_success) { <p role="status">Administrator access granted. Ask the person to sign out and sign back in.</p> }
+    <EditForm id="grant-administrator-form" Model="_model" OnValidSubmit="GrantAsync" FormName="grant-administrator">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <fieldset disabled="@_busy">
+            <div class="field">
+                <label for="administrator-email">Registered account email *</label>
+                <InputText id="administrator-email" type="email" @bind-Value="_model.Email" maxlength="254" />
+            </div>
+            <label><InputCheckbox id="confirm-administrator" @bind-Value="_model.ConfirmAdministratorAccess" /> I confirm this account should receive administrator access.</label>
+            <p><button type="submit" class="primary">@(_busy ? "Granting access…" : "Grant administrator access")</button></p>
+        </fieldset>
+    </EditForm>
+</section>
+
+@code {
+    [Parameter] public EventCallback OnGranted { get; set; }
+    private GrantAdministratorModel _model = new();
+    private bool _busy;
+    private bool _success;
+    private AppointmentApiException? _error;
+
+    private async Task GrantAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _success = false;
+        _error = null;
+        try
+        {
+            await Portal.GrantAdministratorAsync(_model);
+            _model = new();
+            _success = true;
+            await OnGranted.InvokeAsync();
+        }
+        catch (AppointmentApiException error) { _error = error; }
+        finally { _busy = false; }
+    }
+}

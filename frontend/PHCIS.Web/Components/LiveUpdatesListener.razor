@@ -1,0 +1,8 @@
+@inject IServiceProvider Services
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        var updates = Services.GetService<RealtimeUpdates>();
+        if (updates is not null) await updates.StartAsync();
+    }
+}

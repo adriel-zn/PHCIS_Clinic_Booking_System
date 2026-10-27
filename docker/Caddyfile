@@ -1,0 +1,13 @@
+https://localhost:8443 {
+    tls {$PHCIS_TLS_CERT:internal} {$PHCIS_TLS_KEY:}
+    @backend path /api/* /hubs/* /graphql /graphql/* /health /swagger/*
+    handle @backend {
+        reverse_proxy api:8080
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+    header /appsettings.json Cache-Control "no-store"
+}

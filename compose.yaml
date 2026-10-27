@@ -1,0 +1,68 @@
+name: phcis
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${PHCIS_SQL_PASSWORD:?Set PHCIS_SQL_PASSWORD in .env}
+    volumes:
+      - sql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [phcis]
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+    networks: [phcis]
+  api:
+    build:
+      context: .
+      dockerfile: backend/PHCIS.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Phcis: "Server=sqlserver;Database=PHCIS;User ID=sa;Password=${PHCIS_SQL_PASSWORD:?Set PHCIS_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+      Development__InitializeDatabase: "false"
+      Development__SeedClinicsAndSlots: "true"
+      Development__SeedAdministrator: "true"
+      Development__AdministratorPassword: ${PHCIS_ADMIN_PASSWORD:?Set PHCIS_ADMIN_PASSWORD in .env}
+      Email__Enabled: "true"
+      Email__SmtpHost: mailpit
+      ReverseProxy__Enabled: "true"
+      DataProtection__KeyPath: /app/keys
+      Authentication__CookieName: __Host-PHCIS-Docker
+      Authentication__CsrfCookieName: __Host-PHCIS-CSRF-Docker
+      Cors__AllowedOrigins__0: https://localhost:8443
+    volumes:
+      - api-keys:/app/keys
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks: [phcis]
+  web:
+    build:
+      context: .
+      dockerfile: frontend/PHCIS.Web/Dockerfile
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api]
+    networks: [phcis]
+volumes:
+  sql-data:
+  api-keys:
+  caddy-data:
+  caddy-config:
+networks:
+  phcis:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
